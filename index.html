@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#16121a">
+  <title>Movie Ranker</title>
+  <meta name="apple-mobile-web-app-title" content="Movie Ranker">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="stylesheet" href="style.css?v=2">
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><span class="logo" aria-hidden="true">🎬</span>Movie Ranker</div>
+  </header>
+  <div id="banner"></div>
+  <nav class="tabs" id="tabs">
+    <button data-tab="rank">Rank</button>
+    <button data-tab="list">My list</button>
+    <button data-tab="series">Series</button>
+    <button data-tab="franchises">Franchises</button>
+    <button data-tab="friends">Friends</button>
+  </nav>
+  <main id="app"><p class="muted center">Loading…</p></main>
+  <div id="modal-root"></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <p class="version">v2</p>
+  <script type="module" src="js/app.js?v=2"></script>
+</body>
+</html>
