@@ -1,14 +1,15 @@
 // Where accounts, rankings and friends are kept.
 // Two versions with the same functions: practice mode (this browser only) and Supabase (live).
 // Both keep a copy in memory, so screens can read right away; saving waits for the database.
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../config.js?v=4';
-import { PRACTICE_FRIENDS } from './practice-friends.js?v=4';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../config.js?v=5';
+import { PRACTICE_FRIENDS } from './practice-friends.js?v=5';
 
 export const isPractice = !SUPABASE_URL || !SUPABASE_ANON_KEY;
 export const STATUSES = { friend: 'Friend', best: 'Best friend' };
 
 // The movie details saved with each ranking.
-const MOVIE_FIELDS = ['id', 'title', 'date', 'year', 'genres', 'series', 'seriesName', 'franchise', 'poster'];
+// kind is 'tv' for a TV season; episodes is how many episodes that season has.
+const MOVIE_FIELDS = ['id', 'title', 'date', 'year', 'genres', 'series', 'seriesName', 'franchise', 'poster', 'kind', 'episodes'];
 const pickMovie = (m) => Object.fromEntries(MOVIE_FIELDS.map((f) => [f, m[f] ?? null]));
 const cleanTags = (tags) => [...new Set(tags.map((t) => String(t).trim().slice(0, 30)).filter(Boolean))].slice(0, 30);
 

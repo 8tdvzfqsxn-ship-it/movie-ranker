@@ -1,7 +1,7 @@
 // Movie Ranker: screens and buttons.
-import { createStore, isPractice, STATUSES } from './store.js?v=4';
-import * as practiceCatalog from './catalog.js?v=4';
-import { createLiveCatalog } from './catalog-live.js?v=4';
+import { createStore, isPractice, STATUSES } from './store.js?v=5';
+import * as practiceCatalog from './catalog.js?v=5';
+import { createLiveCatalog } from './catalog-live.js?v=5';
 
 const store = await createStore();
 // Practice mode searches the built-in list; live mode searches TMDB and OMDb through Supabase.
@@ -66,15 +66,16 @@ function average(g) {
   return scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
 }
 
-const KIND = { franchise: 'Franchise', series: 'Series', movie: 'Movie' };
+const KIND = { franchise: 'Franchise', series: 'Series', show: 'TV show', movie: 'Movie' };
 
 function groupCard(g, { collapsible = true } = {}) {
   const ms = ordered(g);
   const ranked = g.movies.filter((m) => scoreOf(m) != null).length;
   const avg = average(g);
-  const rowLabel = (m) => (g.kind === 'franchise' ? m.seriesName : '');
+  const rowLabel = (m) => (g.kind === 'franchise' ? m.seriesName : g.kind === 'show' && m.episodes ? `${m.episodes} episodes` : '');
   const sub = g.kind === 'movie' ? '' :
-    `<div class="muted small">${ranked} of ${g.movies.length} ranked${g.storyOrder ? ' · has story order' : ''}</div>`;
+    `<div class="muted small">${g.kind === 'show' && g.movies[0]?.year ? `Started ${g.movies[0].year} · ` : ''}${ranked} of ${g.movies.length} ${
+      g.kind === 'show' ? (g.movies.length === 1 ? 'season ' : 'seasons ') : ''}ranked${g.storyOrder ? ' · has story order' : ''}</div>`;
   const head = `<div class="grow"><div class="kind">${KIND[g.kind]}</div><div class="title">${esc(g.name)}</div>${sub}</div>
     ${avg != null && g.kind !== 'movie' ? `<span class="score" title="Average of your scores">${avg}</span>` : ''}`;
   const list = `<ol class="movies">${ms.map((m) => movieRow(m, { label: rowLabel(m) })).join('')}</ol>`;
@@ -93,9 +94,10 @@ function orderSwitch(note) {
 // ---------- screens ----------
 
 function rankScreen() {
-  const tries = ['Star Wars', 'Marvel', 'Toy Story', 'Harry Potter', 'Lord of the Rings', 'Jaws'];
-  return `<h1>Rank a movie</h1>
-    <input type="search" id="q" placeholder="Search a movie, series or franchise" value="${esc(state.query)}" autocomplete="off">
+  const tries = catalog.live ? ['Star Wars', 'Marvel', 'Toy Story', 'Harry Potter', 'Breaking Bad', 'The Office']
+    : ['Star Wars', 'Marvel', 'Toy Story', 'Harry Potter', 'Lord of the Rings', 'Jaws'];
+  return `<h1>${catalog.live ? 'Rank a movie or show' : 'Rank a movie'}</h1>
+    <input type="search" id="q" placeholder="${catalog.live ? 'Search a movie, TV show, series or franchise' : 'Search a movie, series or franchise'}" value="${esc(state.query)}" autocomplete="off">
     <div id="results"></div>
     ${state.query ? '' : `<div class="chips">${tries.map((t) => `<button class="chip" data-try="${esc(t)}">${esc(t)}</button>`).join('')}</div>`}`;
 }
@@ -110,6 +112,7 @@ function showResults() {
   clearTimeout(searchTimer);
   if (!query) {
     box.innerHTML = `<p class="muted small">Series come back together, with the first movie at the top.${
+      catalog.live ? ' TV shows come with their seasons, Season 1 first.' : ''}${
       isPractice ? ` Practice mode has ${catalog.catalogSize} movies to try.` : ''}</p>`;
     return;
   }
@@ -242,7 +245,9 @@ function render() {
     list: listScreen,
     friends: friendsScreen,
     compare: compareScreen,
-    series: async () => groupsScreen('Series', 'Trilogies and other series, scored by the average of the movies you’ve ranked.',
+    series: async () => groupsScreen('Series', catalog.live
+      ? 'Movie series and TV shows, scored by the average of the movies or seasons you’ve ranked.'
+      : 'Trilogies and other series, scored by the average of the movies you’ve ranked.',
       await groupsFor('series'), 'Story order only changes Star Wars. The others stay in release order.'),
     franchises: async () => groupsScreen('Franchises', 'Bigger groups like Marvel, which hold several series.',
       await groupsFor('franchise'), 'Story order changes Marvel, Star Wars and Middle-earth. The others stay in release order.'),

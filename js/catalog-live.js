@@ -1,6 +1,6 @@
 // Full movie search (live mode), through the movie-search helper on Supabase.
 // Same functions as the practice catalog in catalog.js, but they wait for answers and remember them.
-import { storyOrder } from './story-order.js?v=4';
+import { storyOrder } from './story-order.js?v=5';
 
 export function createLiveCatalog(call) {
   const movies = new Map();   // every movie seen so far, by id
@@ -30,7 +30,9 @@ export function createLiveCatalog(call) {
     },
     async series(key) {
       if (groups.has(key)) return groups.get(key);
-      return once(pending, key, async () => remember((await call({ action: 'collection', id: key.split(':')[1] })).group));
+      // A movie series is a TMDB collection (tmdb-col:ID); a TV show's seasons are tmdb-tv:ID.
+      const action = key.startsWith('tmdb-tv:') ? 'show' : 'collection';
+      return once(pending, key, async () => remember((await call({ action, id: key.split(':')[1] })).group));
     },
     async franchise(name) {
       const key = `franchise:${name}`;

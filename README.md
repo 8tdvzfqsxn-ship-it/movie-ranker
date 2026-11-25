@@ -32,7 +32,9 @@ Start from Song Ranker's ranking (1 to 100, tags, compare with friends), plus mo
   invites and friend requests come with Supabase.
 - **Compare (practice version built):** how close your scores are, movies you both love, where you
   disagree, what they loved that you haven't ranked, and your favorites they haven't ranked.
-- **TV shows too:** the app grows to cover movies and TV shows. It keeps the name Movie Ranker.
+- **TV shows (built 2026-11-25):** shows come up in the same search. Each show works like a series: its aired
+  seasons are listed Season 1 first, each season gets its own 1 to 100 score, and the show's score is the average.
+  It keeps the name Movie Ranker.
 - **Real posters:** these come from TMDB once the app goes live. Practice mode shows colored tiles.
 
 ## Try it on your Mac (practice mode)
@@ -71,6 +73,5 @@ browser, and search uses a small built-in list of about 60 movies (`js/sample-mo
 
 ## Not done yet
 
-- TV shows, in the same search and lists.
 - Story order typed in for more series than Star Wars, Marvel and Middle-earth.
 

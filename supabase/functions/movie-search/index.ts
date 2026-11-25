@@ -8,6 +8,7 @@
 //
 //   { action: 'search', term }        → { groups }: series and franchises together, first movie first
 //   { action: 'collection', id }      → { group }: every movie in one TMDB collection (series)
+//   { action: 'show', id }            → { group }: every aired season of one TV show, Season 1 first
 //   { action: 'franchise', name }     → { group }: every movie in a franchise (Marvel, Pixar, ...)
 //   { action: 'details', id }         → { movie }: one movie with its series and franchise
 //   { action: 'match', title, year }  → { movie }: the best match for a title and year, or null
@@ -131,6 +132,29 @@ async function collectionGroup(id: number, franchise: string | null = null) {
   return { key, kind: 'series', name, franchise, movies };
 }
 
+// A TV show works like a series: each aired season is one item to rank (Specials are left out).
+async function showGroup(id: number) {
+  const t = await tmdb(`/tv/${id}`);
+  const key = 'tmdb-tv:' + id;
+  const genres = (t.genres ?? []).flatMap((g: { name: string }) =>
+    g.name === 'Sci-Fi & Fantasy' ? ['Sci-fi', 'Fantasy'] : g.name === 'Action & Adventure' ? ['Action', 'Adventure'] : [g.name]).slice(0, 3);
+  const showPoster = t.poster_path ? IMG + t.poster_path : null;
+  const movies = (t.seasons ?? [])
+    // deno-lint-ignore no-explicit-any
+    .filter((x: any) => x.season_number > 0 && x.air_date && x.air_date <= today())
+    // deno-lint-ignore no-explicit-any
+    .map((x: any) => ({
+      id: `tv:${id}:s${x.season_number}`, kind: 'tv',
+      title: `${t.name}: Season ${x.season_number}`,
+      date: x.air_date, year: Number(x.air_date.slice(0, 4)), genres,
+      poster: x.poster_path ? IMG + x.poster_path : showPoster,
+      episodes: x.episode_count ?? null,
+      series: key, seriesName: t.name, franchise: null,
+    }))
+    .sort(byDate);
+  return { key, kind: 'show', name: t.name, franchise: null, movies };
+}
+
 async function franchiseGroup(f: Franchise) {
   const found = new Map<string, ReturnType<typeof toMovie>>();
   const add = (m: ReturnType<typeof toMovie>) => { if (!found.has(m.id)) found.set(m.id, m); };
@@ -166,21 +190,32 @@ async function franchiseGroup(f: Franchise) {
 async function search(term: string) {
   const groups: Record<string, unknown>[] = [];
   const shown = new Set<string>();
-  const addGroup = (g: { movies: { id: string }[] } & Record<string, unknown>) => {
+  // pop: how popular the movie or show that brought this group is. Results are listed most popular first.
+  const addGroup = (g: { movies: { id: string }[] } & Record<string, unknown>, pop = 0) => {
     if (!g.movies.length || g.movies.every((m) => shown.has(m.id))) return;
-    groups.push(g);
+    groups.push({ ...g, pop });
     g.movies.forEach((m) => shown.add(m.id));
   };
 
   const f = FRANCHISES.find((x) => x.aliases.includes(norm(term)) || norm(x.name) === norm(term));
-  if (f) addGroup(await franchiseGroup(f));
+  if (f) addGroup(await franchiseGroup(f), Infinity);
 
-  // Movies hardly anyone has rated on TMDB are left out, unless they're all there is.
+  // Movies and shows hardly anyone has rated on TMDB are left out, unless they're all there is.
+  const [movieRes, tvRes] = await Promise.all([
+    tmdb('/search/movie', { query: term, include_adult: 'false' }),
+    tmdb('/search/tv', { query: term, include_adult: 'false' }).catch(() => ({ results: [] })),
+  ]);
   // deno-lint-ignore no-explicit-any
-  const all = (await tmdb('/search/movie', { query: term, include_adult: 'false' })).results.filter((m: any) => m.release_date);
+  const all = movieRes.results.filter((m: any) => m.release_date);
   // deno-lint-ignore no-explicit-any
   const known = all.filter((m: any) => m.vote_count >= 25);
   const hits = (known.length ? known : all).slice(0, 8);
+  // deno-lint-ignore no-explicit-any
+  const tvHits = tvRes.results.filter((t: any) => t.first_air_date && t.vote_count >= 25).slice(0, 3);
+  const shows = await Promise.all(tvHits.map((t: { id: number; popularity: number }) =>
+    showGroup(t.id).then((g) => ({ g, pop: t.popularity })).catch(() => null)));
+  for (const x of shows) if (x) addGroup(x.g, x.pop);
+
   if (!hits.length && !groups.length) {
     // TMDB found nothing: try OMDb.
     const o = await omdb({ s: term, type: 'movie' });
@@ -201,6 +236,8 @@ async function search(term: string) {
   // Only well-known movies bring their whole series along; others show on their own.
   // deno-lint-ignore no-explicit-any
   const wellKnown = new Set(hits.filter((h: any) => h.vote_count >= 300).map((h: any) => 'tmdb:' + h.id));
+  // deno-lint-ignore no-explicit-any
+  const popOf = new Map(hits.map((h: any) => ['tmdb:' + h.id, h.popularity ?? 0]));
   for (const m of full) {
     if (shown.has(m.id)) continue;
     if (m.series && wellKnown.has(m.id)) {
@@ -210,12 +247,13 @@ async function search(term: string) {
       const g: any = await collections.get(m.series);
       // The searched movie's own details (poster from OMDb, genres) replace the shorter collection copy.
       g.movies = g.movies.map((x: { id: string }) => (x.id === m.id ? m : x));
-      addGroup(g);
+      addGroup(g, popOf.get(m.id));
     } else {
-      addGroup({ key: 'movie:' + m.id, kind: 'movie', name: m.title, movies: [m] });
+      addGroup({ key: 'movie:' + m.id, kind: 'movie', name: m.title, movies: [m] }, popOf.get(m.id));
     }
   }
-  return { groups };
+  // deno-lint-ignore no-explicit-any
+  return { groups: groups.sort((a: any, b: any) => b.pop - a.pop).map(({ pop: _pop, ...g }) => g) };
 }
 
 async function match(title: string, year: number | null) {
@@ -248,6 +286,7 @@ Deno.serve(async (req) => {
         return json(term ? await search(term) : { groups: [] });
       }
       case 'collection': return json({ group: await collectionGroup(Number(body.id)) });
+      case 'show': return json({ group: await showGroup(Number(body.id)) });
       case 'franchise': {
         const f = FRANCHISES.find((x) => x.name === body.name);
         return f ? json({ group: await franchiseGroup(f) }) : json({ error: 'Unknown franchise.' }, 400);
