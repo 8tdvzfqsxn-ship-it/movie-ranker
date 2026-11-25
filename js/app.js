@@ -1,7 +1,20 @@
 // Movie Ranker: screens and buttons.
-import { createStore, isPractice, STATUSES } from './store.js?v=5';
-import * as practiceCatalog from './catalog.js?v=5';
-import { createLiveCatalog } from './catalog-live.js?v=5';
+import { createStore, isPractice, STATUSES } from './store.js?v=6';
+import * as practiceCatalog from './catalog.js?v=6';
+import { createLiveCatalog } from './catalog-live.js?v=6';
+
+// The iPhone Duo's inside screen (lessons from Song Ranker). Safari doesn't tell pages where the fold is, so the
+// layout goes by screen size: about 669 × 951 points held tall, 951 × 669 held wide (fold down the middle).
+// Regular iPhones, upright or sideways, never match these.
+const duoTall = matchMedia('(min-width: 640px) and (max-width: 699px) and (min-height: 700px)');
+const duoWide = matchMedia('(min-width: 900px) and (max-width: 1000px) and (min-height: 450px) and (max-height: 700px)');
+const fitScreen = () => {
+  document.documentElement.classList.toggle('duo-tall', duoTall.matches);
+  document.documentElement.classList.toggle('duo-wide', duoWide.matches);
+};
+duoTall.addEventListener('change', fitScreen);
+duoWide.addEventListener('change', fitScreen);
+fitScreen();
 
 const store = await createStore();
 // Practice mode searches the built-in list; live mode searches TMDB and OMDb through Supabase.
@@ -96,10 +109,10 @@ function orderSwitch(note) {
 function rankScreen() {
   const tries = catalog.live ? ['Star Wars', 'Marvel', 'Toy Story', 'Harry Potter', 'Breaking Bad', 'The Office']
     : ['Star Wars', 'Marvel', 'Toy Story', 'Harry Potter', 'Lord of the Rings', 'Jaws'];
-  return `<h1>${catalog.live ? 'Rank a movie or show' : 'Rank a movie'}</h1>
+  return `<div class="pane-head"><h1>${catalog.live ? 'Rank a movie or show' : 'Rank a movie'}</h1>
     <input type="search" id="q" placeholder="${catalog.live ? 'Search a movie, TV show, series or franchise' : 'Search a movie, series or franchise'}" value="${esc(state.query)}" autocomplete="off">
-    <div id="results"></div>
-    ${state.query ? '' : `<div class="chips">${tries.map((t) => `<button class="chip" data-try="${esc(t)}">${esc(t)}</button>`).join('')}</div>`}`;
+    <div class="chips" ${state.query ? 'hidden' : ''}>${tries.map((t) => `<button class="chip" data-try="${esc(t)}">${esc(t)}</button>`).join('')}</div></div>
+    <div class="pane-list"><div id="results"></div></div>`;
 }
 
 // Shows search results. Live search waits until typing pauses, and ignores answers to older searches.
@@ -133,14 +146,14 @@ function showResults() {
 
 function listScreen() {
   const all = store.all().sort((a, b) => b.score - a.score || a.movie.title.localeCompare(b.movie.title));
-  if (!all.length) return `<h1>My list</h1><p class="empty">Nothing ranked yet. Start on the Rank tab.</p>`;
+  if (!all.length) return `<div class="pane-head"><h1>My list</h1><p class="empty">Nothing ranked yet. Start on the Rank tab.</p></div>`;
   const tags = [...new Set(all.flatMap((r) => r.tags))];
   if (state.tag && !tags.includes(state.tag)) state.tag = '';
   const shown = state.tag ? all.filter((r) => r.tags.includes(state.tag)) : all;
-  return `<h1>My list</h1><p class="muted small">${all.length} movie${all.length === 1 ? '' : 's'} ranked, highest first.</p>
+  return `<div class="pane-head"><h1>My list</h1><p class="muted small">${all.length} ranked, highest first.</p>
     ${tags.length ? `<div class="chips"><button class="chip ${state.tag ? '' : 'on'}" data-tag="">All</button>${
-      tags.map((t) => `<button class="chip ${state.tag === t ? 'on' : ''}" data-tag="${esc(t)}">${esc(t)}</button>`).join('')}</div>` : ''}
-    <div class="card"><ol class="movies">${shown.map((r, i) => movieRow(movieById(r.movie.id), { num: i + 1, label: r.movie.seriesName })).join('')}</ol></div>`;
+      tags.map((t) => `<button class="chip ${state.tag === t ? 'on' : ''}" data-tag="${esc(t)}">${esc(t)}</button>`).join('')}</div>` : ''}</div>
+    <div class="pane-list"><div class="card"><ol class="movies">${shown.map((r, i) => movieRow(movieById(r.movie.id), { num: i + 1, label: r.movie.seriesName })).join('')}</ol></div></div>`;
 }
 
 // Practice mode lists every series and franchise in the built-in list. Live mode lists the ones
@@ -156,9 +169,9 @@ function groupsScreen(title, intro, groups, note) {
   const started = groups.filter((g) => average(g) != null).sort((a, b) => average(b) - average(a));
   const rest = groups.filter((g) => average(g) == null);
   const empty = catalog.live ? 'Rank a movie that’s part of one to see it here.' : 'Rank a movie from any of these to see its score here.';
-  return `<h1>${title}</h1><p class="muted small">${intro}</p>${orderSwitch(note)}
-    ${started.length ? started.map((g) => groupCard(g)).join('') : `<p class="empty">${empty}</p>`}
-    ${rest.length ? `<h3>Not started</h3>${rest.map((g) => groupCard(g)).join('')}` : ''}`;
+  return `<div class="pane-head"><h1>${title}</h1><p class="muted small">${intro}</p>${orderSwitch(note)}</div>
+    <div class="pane-list">${started.length ? started.map((g) => groupCard(g)).join('') : `<p class="empty">${empty}</p>`}
+    ${rest.length ? `<h3>Not started</h3>${rest.map((g) => groupCard(g)).join('')}` : ''}</div>`;
 }
 
 function friendsScreen() {
@@ -178,17 +191,17 @@ function friendsScreen() {
         <button class="danger small" data-unfriend="${esc(f.id)}">Remove</button></div>
     </div>`;
   };
-  return `<h1>Friends</h1>
+  return `<div class="pane-head"><h1>Friends</h1>
     <p class="muted small">Make a friend a <b>Best friend</b> to see a small icon with their letter on every movie
       they’ve seen. Regular friends stay out of the way until you open Compare.</p>
     <div class="addtag"><input type="text" id="f-code" placeholder="Friend code" autocomplete="off" autocapitalize="characters">
       <button class="primary" id="f-add">Add friend</button></div>
     <p class="err small" id="f-err"></p>
     ${isPractice ? '<p class="muted small">Practice mode: try the codes <b>SAM123</b> and <b>JORDAN7</b>.</p>'
-      : `<p class="muted small">Your friend code is <b>${esc(me.code)}</b>. Send it to a friend so they can add you.</p>`}
-    ${requestsHtml()}
+      : `<p class="muted small">Your friend code is <b>${esc(me.code)}</b>. Send it to a friend so they can add you.</p>`}</div>
+    <div class="pane-list">${requestsHtml()}
     ${friends.length ? friends.map(card).join('') : '<p class="empty">No friends yet.</p>'}
-    ${isPractice ? '' : `<p class="muted small center">Signed in as ${esc(me.name)} · <button class="link" id="sign-out">Sign out</button></p>`}`;
+    ${isPractice ? '' : `<p class="muted small center">Signed in as ${esc(me.name)} · <button class="link" id="sign-out">Sign out</button></p>`}</div>`;
 }
 
 // Friend requests waiting on you (Accept) or on them.
@@ -223,18 +236,18 @@ function compareScreen() {
   const section = (title, rows, emptyText) => `<h3>${title}</h3>${rows.length
     ? `<div class="card"><ol class="movies">${rows.join('')}</ol></div>` : `<p class="muted small">${emptyText}</p>`}`;
 
-  return `<button class="link" data-tab="friends">‹ Friends</button>
+  return `<div class="pane-head"><button class="link" data-tab="friends">‹ Friends</button>
     <h1>You and ${esc(f.name)}</h1>
     <div class="card agree"><div class="big">${agree == null ? '–' : `${agree}%`}</div>
       <div class="muted small">${agree == null
         ? `Rank some movies ${esc(f.name)} has seen to find out how close your tastes are.`
-        : `How close your scores are, across the ${both.length} movie${both.length === 1 ? '' : 's'} you’ve both ranked.`}</div></div>
-    ${section('You both love', bothLove.map(pairRow), 'No shared favorites yet (75 and up from both of you).')}
+        : `How close your scores are, across the ${both.length} movie${both.length === 1 ? '' : 's'} you’ve both ranked.`}</div></div></div>
+    <div class="pane-list">${section('You both love', bothLove.map(pairRow), 'No shared favorites yet (75 and up from both of you).')}
     ${section('Where you disagree', apart.map(pairRow), 'Nothing yet with 20 or more points between you.')}
     ${section(`${esc(f.name)} loved, you haven’t ranked`, theirPicks.map((x) => movieRow(x.m, { label: `${f.name} gave it ${x.them}` })),
       `You’ve ranked everything ${esc(f.name)} loved.`)}
     ${section(`Your favorites ${esc(f.name)} hasn’t ranked`, myPicks.map((r) => pairRow({ m: movieById(r.movie.id), me: r.score, them: '–' })),
-      'Nothing here yet.')}`;
+      'Nothing here yet.')}</div>`;
 }
 
 function render() {
@@ -394,7 +407,7 @@ document.addEventListener('input', (e) => {
   if (e.target.id !== 'q') return;
   state.query = e.target.value;
   showResults();
-  const chips = $('#app > .chips');
+  const chips = $('#app .pane-head > .chips');
   if (chips) chips.hidden = !!state.query;
 });
 
@@ -410,7 +423,7 @@ document.addEventListener('toggle', (e) => {
 function authScreen(mode = 'signin', message = '') {
   $('#tabs').hidden = true;
   const signup = mode === 'signup';
-  $('#app').innerHTML = `<h1>${signup ? 'Create your account' : 'Sign in'}</h1>
+  $('#app').innerHTML = `<div class="pane-head"><h1>${signup ? 'Create your account' : 'Sign in'}</h1>
     <p class="muted small">Your rankings are saved to your account, so they show on every device.
       Only you and the friends you accept can see them.</p>
     <form id="auth" class="stack">
@@ -422,7 +435,7 @@ function authScreen(mode = 'signin', message = '') {
       <p class="err small" id="a-err">${esc(message)}</p>
     </form>
     <p class="center small">${signup ? 'Already have an account?' : 'New here?'}
-      <button class="link" id="a-switch">${signup ? 'Sign in' : 'Create an account'}</button></p>`;
+      <button class="link" id="a-switch">${signup ? 'Sign in' : 'Create an account'}</button></p></div>`;
   $('#a-switch').onclick = () => authScreen(signup ? 'signin' : 'signup');
   $('#auth').onsubmit = async (e) => {
     e.preventDefault();

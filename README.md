@@ -37,6 +37,15 @@ Start from Song Ranker's ranking (1 to 100, tags, compare with friends), plus mo
   It keeps the name Movie Ranker.
 - **Real posters:** these come from TMDB once the app goes live. Practice mode shows colored tiles.
 
+## Screens (v6)
+
+- **Every iPhone, upright or sideways:** one column that keeps clear of the notch, Dynamic Island and home bar.
+- **iPhone Duo, outside screen:** like any iPhone; pop-up windows stop below the clock pill in the top-right corner.
+- **iPhone Duo, inside screen held tall:** full width, slightly bigger text; pop-ups sit in the bottom half, below the fold.
+- **iPhone Duo, inside screen held wide:** split at the fold. Left half: title, tabs and controls. Right half: the
+  list, scrolling on its own. Pop-ups open in the right half. The Duo is recognised by screen size (about 669 × 951
+  points), the same way Song Ranker does it, because Safari doesn't say where the fold is.
+
 ## Try it on your Mac (practice mode)
 
 ```bash

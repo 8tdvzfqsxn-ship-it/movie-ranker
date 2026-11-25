@@ -173,3 +173,72 @@ input[type=email], input[type=password] {
 .stack button[type=submit] { padding: 11px 14px; }
 button:disabled { opacity: .6; cursor: default; }
 img.poster { object-fit: cover; background: var(--chip); }
+
+/* ---------------------------------------------------------------- every iPhone (v6)
+   Keep clear of the notch or Dynamic Island, rounded corners and the home bar, upright or sideways. */
+body { padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left); }
+main { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
+#toast { bottom: calc(24px + env(safe-area-inset-bottom)); }
+.modal { padding-bottom: calc(18px + env(safe-area-inset-bottom)); }
+.pane-list > :first-child { margin-top: 10px; }
+.pane-head .chips { margin-bottom: 0; }
+/* Long titles wrap instead of pushing the score button off the screen. */
+.movie .title, .group .title { overflow-wrap: anywhere; }
+
+/* Phone-width screens (every iPhone upright, and the Duo's outside screen).
+   The Duo's outside screen keeps its clock, battery and Wi-Fi in a tall pill down the top-right corner (Song Ranker
+   v16), so pop-up windows stop well below the top. */
+@media (max-width: 639px) {
+  .modal { max-height: calc(100dvh - max(120px, env(safe-area-inset-top) + 60px)); }
+}
+/* Very narrow screens (iPhone SE, mini): a little tighter. */
+@media (max-width: 380px) {
+  main { padding-left: 12px; padding-right: 12px; }
+  .tabs { padding-left: 12px; padding-right: 12px; }
+  .movie { gap: 10px; padding: 8px 10px; }
+  .score { min-width: 42px; }
+  .pair span { min-width: 42px; }
+}
+
+/* Regular iPhones held sideways: short and wide. Smaller top, and pop-ups use the full height. */
+@media (max-height: 449px) and (orientation: landscape) {
+  .top { padding-top: 6px; }
+  .modal-back { align-items: center; }
+  .modal { max-height: calc(100dvh - 16px); border-radius: 18px; }
+}
+
+/* ---------------------------------------------------------------- iPhone Duo, inside screen held tall
+   One column across the full width, slightly bigger text. Pop-ups sit in the bottom half, below the fold. */
+html.duo-tall, html.duo-tall body { font-size: 17px; }
+html.duo-tall main, html.duo-tall .top, html.duo-tall .tabs { max-width: none; }
+html.duo-tall .poster { width: 48px; height: 70px; }
+html.duo-tall .modal-back { align-items: flex-end; }
+html.duo-tall .modal { max-width: none; max-height: calc(50dvh - 12px); border-radius: 18px 18px 0 0; }
+
+/* ---------------------------------------------------------------- iPhone Duo, inside screen held wide
+   The fold runs down the middle. Left half: title, tabs and controls. Right half: the list, scrolling on its own.
+   The phone keeps its clock in a strip down the right edge (a wide safe area there), so the left column is sized
+   from the left edge to just before the fold, and the right one from just after it. Pop-ups open in the right half. */
+html.duo-wide, html.duo-wide body { font-size: 17px; }
+html.duo-wide body {
+  display: grid; height: 100dvh; overflow: hidden;
+  grid-template-columns: calc(50vw - env(safe-area-inset-left) - 14px) minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto; column-gap: 28px;
+}
+html.duo-wide .top { grid-column: 1; grid-row: 1; max-width: none; margin: 0; width: 100%; }
+html.duo-wide #banner { grid-column: 1; grid-row: 2; }
+html.duo-wide .banner { margin: 4px 16px 8px; }
+html.duo-wide .tabs { grid-column: 1; grid-row: 3; max-width: none; margin: 0; width: 100%; }
+html.duo-wide main { display: contents; }
+html.duo-wide .pane-head { grid-column: 1; grid-row: 4; overflow-y: auto; padding: 4px 16px 16px; min-height: 0; }
+html.duo-wide .pane-list { grid-column: 2; grid-row: 1 / -1; overflow-y: auto; overscroll-behavior: contain;
+  padding: 12px 16px calc(24px + env(safe-area-inset-bottom)) 0; min-height: 0; }
+html.duo-wide .pane-list { padding-right: 16px; }
+html.duo-wide main > p { grid-column: 1; grid-row: 4; padding: 0 16px; }
+html.duo-wide .version { grid-column: 1; grid-row: 5; margin: 4px 0 calc(6px + env(safe-area-inset-bottom)); }
+html.duo-wide #modal-root { position: fixed; }
+html.duo-wide .poster { width: 48px; height: 70px; }
+html.duo-wide .modal-back { justify-content: flex-end; align-items: center; padding: 12px 0;
+  padding-left: calc(50vw + 14px); padding-right: max(16px, env(safe-area-inset-right)); }
+html.duo-wide .modal { max-width: none; max-height: calc(100dvh - 24px); border-radius: 18px; }
+html.duo-wide #toast { left: 75vw; }
