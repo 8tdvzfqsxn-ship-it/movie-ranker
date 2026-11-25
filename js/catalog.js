@@ -1,6 +1,6 @@
 // Finding movies and their groups (series and franchises).
 // Practice mode reads the built-in list in sample-movies.js.
-import { SERIES, FRANCHISE_STORY_ORDER, MOVIES } from './sample-movies.js';
+import { SERIES, FRANCHISE_STORY_ORDER, MOVIES } from './sample-movies.js?v=4';
 
 const movies = MOVIES.map(([id, title, date, genres, series, franchise]) => ({
   id, title, date, year: Number(date.slice(0, 4)),
@@ -51,3 +51,11 @@ export function search(query) {
 }
 
 export const catalogSize = movies.length;
+
+// The same functions the live catalog has (catalog-live.js), so the screens work with either.
+export const live = false;
+export const series = async (key) => seriesGroups.find((g) => g.key === key);
+export const franchise = async (name) => franchiseGroups.find((g) => g.name === name);
+export const seriesOf = (m) => seriesGroups.find((g) => g.movies.some((x) => x.id === m.id)) || null;
+export const complete = async (m) => m;
+export const match = async () => null;

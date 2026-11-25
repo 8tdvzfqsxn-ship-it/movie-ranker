@@ -50,9 +50,13 @@ browser, and search uses a small built-in list of about 60 movies (`js/sample-mo
 |---|---|
 | `index.html`, `style.css` | The page and how it looks |
 | `js/app.js` | Screens and buttons: Rank, My list, Series, Franchises |
-| `js/catalog.js` | Movie search and the series and franchise groups |
+| `js/catalog.js` | Practice-mode search and the series and franchise groups |
+| `js/catalog-live.js` | Full movie search through the movie-search helper |
+| `js/story-order.js` | Story order for Star Wars, Marvel and Middle-earth in full search |
 | `js/sample-movies.js` | The practice movie list, including story orders |
-| `js/store.js` | Saving: practice mode now, Supabase later |
+| `js/store.js` | Saving: practice mode or Supabase |
+| `supabase/setup.sql` | Database tables and who-can-see-what rules |
+| `supabase/functions/movie-search/index.ts` | Search helper on Supabase: TMDB first, OMDb fills gaps |
 | `config.js` | Your Supabase address and public key (blank for practice) |
 
 ## Live (since 2026-11-25)
@@ -61,8 +65,12 @@ browser, and search uses a small built-in list of about 60 movies (`js/sample-mo
 - **Database:** Supabase project `movie-ranker`, set up with `supabase/setup.sql`. Its Site URL points
   at the web address, so sign-up emails lead back to the app.
 - **Connecting a copy:** `node tools/set-key.mjs` saves the Project URL and publishable key into `config.js`.
+- **Movie search:** the `movie-search` Edge Function. Its secrets `TMDB_TOKEN` and `OMDB_KEY` are set in
+  Supabase → Edge Functions → Secrets. After changing its code, paste it into the function's Code tab and deploy.
 - **Practice mode:** blank both values in `config.js` to try things on your Mac without the database.
 
 ## Not done yet
 
-- Sign up for a free TMDB key and a free OMDb key (Josh does this himself, and stores them in Supabase).
+- TV shows, in the same search and lists.
+- Story order typed in for more series than Star Wars, Marvel and Middle-earth.
+

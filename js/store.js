@@ -1,8 +1,8 @@
 // Where accounts, rankings and friends are kept.
 // Two versions with the same functions: practice mode (this browser only) and Supabase (live).
 // Both keep a copy in memory, so screens can read right away; saving waits for the database.
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../config.js?v=3';
-import { PRACTICE_FRIENDS } from './practice-friends.js?v=3';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../config.js?v=4';
+import { PRACTICE_FRIENDS } from './practice-friends.js?v=4';
 
 export const isPractice = !SUPABASE_URL || !SUPABASE_ANON_KEY;
 export const STATUSES = { friend: 'Friend', best: 'Best friend' };
@@ -44,6 +44,7 @@ function practiceStore() {
 
     friends: () => data.friends.map(withRatings),
     friend: (id) => { const f = data.friends.find((x) => x.code === id); return f && withRatings(f); },
+    friendMovie: () => null,
     requests: () => ({ incoming: [], outgoing: [] }),
     async refresh() {},
     async addFriend(rawCode) {
@@ -77,6 +78,7 @@ async function supabaseStore() {
   let ratings = {};
   let friends = [];
   let requests = { incoming: [], outgoing: [] };
+  let friendMovies = new Map(); // movie details from friends' rankings, for Compare
 
   const toRating = (r) => ({ movie: r.movie, score: r.score, tags: r.tags, ratedAt: r.rated_at });
 
@@ -96,7 +98,8 @@ async function supabaseStore() {
 
     const accepted = links.filter((f) => f.status === 'accepted').map(other);
     const theirs = accepted.length
-      ? ok(await sb.from('ratings').select('user_id, movie_id, score').in('user_id', accepted)) : [];
+      ? ok(await sb.from('ratings').select('user_id, movie_id, movie, score').in('user_id', accepted)) : [];
+    friendMovies = new Map(theirs.map((r) => [r.movie_id, r.movie]));
     friends = accepted.map((id) => ({
       id, name: name(id), status: labelOf(id),
       ratings: Object.fromEntries(theirs.filter((r) => r.user_id === id).map((r) => [r.movie_id, r.score])),
@@ -153,6 +156,18 @@ async function supabaseStore() {
 
     friends: () => friends,
     friend: (id) => friends.find((f) => f.id === id),
+    friendMovie: (id) => friendMovies.get(id) || null,
+    // Calls the movie-search helper (supabase/functions/movie-search); turns its error answer into a readable message.
+    async call(body) {
+      const { data, error } = await sb.functions.invoke('movie-search', { body });
+      if (error) {
+        let msg = error.message;
+        try { msg = (await error.context.json()).error || msg; } catch { /* keep the general message */ }
+        if (/Failed to send|not found|404/i.test(msg)) msg = 'Movie search isn’t switched on yet.';
+        throw new Error(msg);
+      }
+      return typeof data === 'string' ? JSON.parse(data) : data;
+    },
     requests: () => requests,
     async refresh() { if (uid) await load(); },
     async addFriend(code) {

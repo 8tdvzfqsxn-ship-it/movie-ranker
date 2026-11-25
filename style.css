@@ -172,3 +172,4 @@ input[type=email], input[type=password] {
 }
 .stack button[type=submit] { padding: 11px 14px; }
 button:disabled { opacity: .6; cursor: default; }
+img.poster { object-fit: cover; background: var(--chip); }

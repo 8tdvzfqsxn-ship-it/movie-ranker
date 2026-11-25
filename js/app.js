@@ -1,8 +1,11 @@
 // Movie Ranker: screens and buttons.
-import { createStore, isPractice, STATUSES } from './store.js?v=3';
-import * as catalog from './catalog.js?v=3';
+import { createStore, isPractice, STATUSES } from './store.js?v=4';
+import * as practiceCatalog from './catalog.js?v=4';
+import { createLiveCatalog } from './catalog-live.js?v=4';
 
 const store = await createStore();
+// Practice mode searches the built-in list; live mode searches TMDB and OMDb through Supabase.
+const catalog = isPractice ? practiceCatalog : createLiveCatalog((body) => store.call(body));
 const state = { tab: 'rank', query: '', order: 'release', tag: '', open: new Set(), friend: null };
 
 const MOMENTS = ['Date night', 'Comfort movie', 'Family night', 'With friends', 'Rainy day', 'Holiday', 'Rewatch often'];
@@ -13,11 +16,12 @@ const band = (s) => BANDS.find(([min]) => s >= min)[1];
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const $ = (sel) => document.querySelector(sel);
 const scoreOf = (m) => store.get(m.id)?.score;
-const movieById = (id) => catalog.byId(id) || store.get(id)?.movie;
+const movieById = (id) => catalog.byId(id) || store.get(id)?.movie || store.friendMovie(id);
 
 // ---------- pieces ----------
 
 function poster(m, size = '') {
+  if (m.poster) return `<img class="poster ${size}" src="${esc(m.poster)}" alt="" loading="lazy">`;
   let h = 0;
   for (const c of m.title) h = (h * 31 + c.charCodeAt(0)) % 360;
   // Use the part after a colon ("Star Wars: A New Hope" → NH) and skip little words.
@@ -92,18 +96,36 @@ function rankScreen() {
   const tries = ['Star Wars', 'Marvel', 'Toy Story', 'Harry Potter', 'Lord of the Rings', 'Jaws'];
   return `<h1>Rank a movie</h1>
     <input type="search" id="q" placeholder="Search a movie, series or franchise" value="${esc(state.query)}" autocomplete="off">
-    <div id="results">${resultsHtml()}</div>
+    <div id="results"></div>
     ${state.query ? '' : `<div class="chips">${tries.map((t) => `<button class="chip" data-try="${esc(t)}">${esc(t)}</button>`).join('')}</div>`}`;
 }
 
-function resultsHtml() {
-  if (!state.query.trim()) {
-    return `<p class="muted small">Series come back together, with the first movie at the top.${
+// Shows search results. Live search waits until typing pauses, and ignores answers to older searches.
+let searchTimer;
+let searchCount = 0;
+function showResults() {
+  const box = $('#results');
+  if (!box) return;
+  const query = state.query.trim();
+  clearTimeout(searchTimer);
+  if (!query) {
+    box.innerHTML = `<p class="muted small">Series come back together, with the first movie at the top.${
       isPractice ? ` Practice mode has ${catalog.catalogSize} movies to try.` : ''}</p>`;
+    return;
   }
-  const groups = catalog.search(state.query);
-  if (!groups.length) return `<p class="empty">No movies found for “${esc(state.query)}”.</p>`;
-  return groups.map((g) => groupCard(g, { collapsible: false })).join('');
+  const mine = ++searchCount;
+  const show = (html) => { if (mine === searchCount && $('#results')) $('#results').innerHTML = html; };
+  const run = async () => {
+    if (catalog.live) show('<p class="muted small">Searching…</p>');
+    try {
+      const groups = await catalog.search(query);
+      show(groups.length ? groups.map((g) => groupCard(g, { collapsible: false })).join('')
+        : `<p class="empty">No movies found for “${esc(query)}”.</p>`);
+    } catch (e) {
+      show(`<p class="empty">${esc(e.message || 'Search didn’t work. Try again.')}</p>`);
+    }
+  };
+  if (catalog.live) searchTimer = setTimeout(run, 350); else run();
 }
 
 function listScreen() {
@@ -118,11 +140,21 @@ function listScreen() {
     <div class="card"><ol class="movies">${shown.map((r, i) => movieRow(movieById(r.movie.id), { num: i + 1, label: r.movie.seriesName })).join('')}</ol></div>`;
 }
 
+// Practice mode lists every series and franchise in the built-in list. Live mode lists the ones
+// you've ranked a movie from, each with all of its movies.
+async function groupsFor(kind) {
+  if (!catalog.live) return kind === 'series' ? catalog.seriesGroups : catalog.franchiseGroups;
+  const keys = [...new Set(store.all().map((r) => (kind === 'series' ? r.movie.series : r.movie.franchise)).filter(Boolean))];
+  const loaded = await Promise.allSettled(keys.map((k) => (kind === 'series' ? catalog.series(k) : catalog.franchise(k))));
+  return loaded.filter((x) => x.status === 'fulfilled' && x.value).map((x) => x.value);
+}
+
 function groupsScreen(title, intro, groups, note) {
   const started = groups.filter((g) => average(g) != null).sort((a, b) => average(b) - average(a));
   const rest = groups.filter((g) => average(g) == null);
+  const empty = catalog.live ? 'Rank a movie that’s part of one to see it here.' : 'Rank a movie from any of these to see its score here.';
   return `<h1>${title}</h1><p class="muted small">${intro}</p>${orderSwitch(note)}
-    ${started.length ? started.map((g) => groupCard(g)).join('') : '<p class="empty">Rank a movie from any of these to see its score here.</p>'}
+    ${started.length ? started.map((g) => groupCard(g)).join('') : `<p class="empty">${empty}</p>`}
     ${rest.length ? `<h3>Not started</h3>${rest.map((g) => groupCard(g)).join('')}` : ''}`;
 }
 
@@ -210,12 +242,21 @@ function render() {
     list: listScreen,
     friends: friendsScreen,
     compare: compareScreen,
-    series: () => groupsScreen('Series', 'Trilogies and other series, scored by the average of the movies you’ve ranked.',
-      catalog.seriesGroups, 'Story order only changes Star Wars. The others stay in release order.'),
-    franchises: () => groupsScreen('Franchises', 'Bigger groups like Marvel, which hold several series.',
-      catalog.franchiseGroups, 'Story order changes Marvel, Star Wars and Middle-earth. The others stay in release order.'),
+    series: async () => groupsScreen('Series', 'Trilogies and other series, scored by the average of the movies you’ve ranked.',
+      await groupsFor('series'), 'Story order only changes Star Wars. The others stay in release order.'),
+    franchises: async () => groupsScreen('Franchises', 'Bigger groups like Marvel, which hold several series.',
+      await groupsFor('franchise'), 'Story order changes Marvel, Star Wars and Middle-earth. The others stay in release order.'),
   };
-  $('#app').innerHTML = screens[state.tab]();
+  const tab = state.tab;
+  const out = screens[tab]();
+  if (typeof out === 'string') $('#app').innerHTML = out;
+  else {
+    if (!$('#app').dataset.tab || $('#app').dataset.tab !== tab) $('#app').innerHTML = '<p class="muted center">Loading…</p>';
+    out.then((html) => { if (state.tab === tab) $('#app').innerHTML = html; })
+      .catch((e) => { if (state.tab === tab) $('#app').innerHTML = `<p class="empty">${esc(e.message || 'Couldn’t load this.')}</p>`; });
+  }
+  $('#app').dataset.tab = tab;
+  if (tab === 'rank') showResults();
 }
 
 // ---------- ranking a movie ----------
@@ -234,7 +275,7 @@ function openRate(id) {
   root.innerHTML = `<div class="modal-back"><div class="modal" role="dialog" aria-modal="true" aria-label="Rank ${esc(m.title)}">
     <div class="film">${poster(m, 'big')}<div><h2>${esc(m.title)}</h2>
       <div class="muted small">${m.year}${m.seriesName ? ` · ${esc(m.seriesName)}` : ''}${m.franchise && m.franchise !== m.seriesName ? ` · ${esc(m.franchise)}` : ''}</div>
-      <div class="muted small">${m.genres.map(esc).join(', ')}</div></div></div>
+      <div class="muted small">${(m.genres || []).map(esc).join(', ')}</div></div></div>
     <div class="bigscore" id="m-score">${score}</div><div class="band" id="m-band">${band(score)}</div>
     <input id="m-range" type="range" min="1" max="100" value="${score}" aria-label="Score from 1 to 100">
     <h3>Moments</h3><div class="chips" id="m-tags">${tagChips()}</div>
@@ -268,7 +309,8 @@ function openRate(id) {
     else if (t.id === 'm-save') {
       t.disabled = true;
       t.textContent = 'Saving…';
-      attempt(() => store.rate(m, score, [...tags]), () => { close(); render(); afterSave(m, score); },
+      attempt(async () => { const full = await catalog.complete(m); await store.rate(full, score, [...tags]); return full; },
+        (full) => { close(); render(); afterSave(full, score); },
         () => { t.disabled = false; t.textContent = 'Save'; });
     }
   });
@@ -282,7 +324,7 @@ function openRate(id) {
 
 // After ranking a movie in a series, offer the next one you haven't ranked (in release order).
 function afterSave(m, score) {
-  const series = catalog.seriesGroups.find((g) => g.movies.some((x) => x.id === m.id));
+  const series = catalog.seriesOf(m);
   const next = series && series.movies.find((x) => scoreOf(x) == null);
   if (next) toast(`Saved ${score}. Next in ${series.name}:`, { label: `Rank ${next.title}`, run: () => openRate(next.id) });
   else toast(`Saved ${m.title}: ${score}`);
@@ -346,7 +388,7 @@ document.addEventListener('keydown', (e) => { if (e.target.id === 'f-code' && e.
 document.addEventListener('input', (e) => {
   if (e.target.id !== 'q') return;
   state.query = e.target.value;
-  $('#results').innerHTML = resultsHtml();
+  showResults();
   const chips = $('#app > .chips');
   if (chips) chips.hidden = !!state.query;
 });
@@ -404,9 +446,23 @@ function authScreen(mode = 'signin', message = '') {
 function start() {
   $('#tabs').hidden = false;
   $('#banner').innerHTML = isPractice
-    ? '<div class="banner">Practice mode: rankings are saved only in this browser, using a small built-in movie list.</div>'
-    : '<div class="banner">Search uses a small built-in movie list until full movie search is connected.</div>';
+    ? '<div class="banner">Practice mode: rankings are saved only in this browser, using a small built-in movie list.</div>' : '';
   render();
+  if (catalog.live) linkOldRankings();
+}
+
+// Rankings made before full search (from the built-in list) get linked to the same movie in TMDB,
+// so they show posters and join their series. Any that can't be matched stay as they are.
+async function linkOldRankings() {
+  const old = store.all().filter((r) => !String(r.movie.id).includes(':'));
+  let linked = 0;
+  for (const r of old) {
+    try {
+      const m = await catalog.match(r.movie.title, r.movie.year);
+      if (m && !store.get(m.id)) { await store.rate(m, r.score, r.tags); await store.remove(r.movie.id); linked++; }
+    } catch { return; } // search isn't working yet: try again next time
+  }
+  if (linked) { render(); toast(`Linked ${linked} earlier ranking${linked === 1 ? '' : 's'} to full movie search.`); }
 }
 
 try {
