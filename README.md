@@ -55,8 +55,14 @@ browser, and search uses a small built-in list of about 60 movies (`js/sample-mo
 | `js/store.js` | Saving: practice mode now, Supabase later |
 | `config.js` | Your Supabase address and public key (blank for practice) |
 
+## Live (since 2026-11-25)
+
+- **Web address:** https://8tdvzfqsxn-ship-it.github.io/movie-ranker/ (GitHub Pages, from `main`)
+- **Database:** Supabase project `movie-ranker`, set up with `supabase/setup.sql`. Its Site URL points
+  at the web address, so sign-up emails lead back to the app.
+- **Connecting a copy:** `node tools/set-key.mjs` saves the Project URL and publishable key into `config.js`.
+- **Practice mode:** blank both values in `config.js` to try things on your Mac without the database.
+
 ## Not done yet
 
-- Create the GitHub repository `movie-ranker` (Josh does this himself).
-- Create the Supabase project `movie-ranker` (Josh does this himself, and pastes the keys).
 - Sign up for a free TMDB key and a free OMDb key (Josh does this himself, and stores them in Supabase).
