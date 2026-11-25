@@ -1,8 +1,8 @@
 // Movie Ranker: screens and buttons.
-import { createStore, isPractice, STATUSES } from './store.js?v=2';
-import * as catalog from './catalog.js?v=2';
+import { createStore, isPractice, STATUSES } from './store.js?v=3';
+import * as catalog from './catalog.js?v=3';
 
-const store = createStore();
+const store = await createStore();
 const state = { tab: 'rank', query: '', order: 'release', tag: '', open: new Set(), friend: null };
 
 const MOMENTS = ['Date night', 'Comfort movie', 'Family night', 'With friends', 'Rainy day', 'Holiday', 'Rewatch often'];
@@ -128,18 +128,19 @@ function groupsScreen(title, intro, groups, note) {
 
 function friendsScreen() {
   const friends = store.friends();
+  const me = store.me();
   const card = (f) => {
     const count = Object.keys(f.ratings).length;
     const seg = Object.entries(STATUSES).map(([v, label]) =>
-      `<button data-status="${v}" data-code="${esc(f.code)}" class="${f.status === v ? 'on' : ''}">${label}</button>`).join('');
+      `<button data-status="${v}" data-id="${esc(f.id)}" class="${f.status === v ? 'on' : ''}">${label}</button>`).join('');
     return `<div class="card friend">
       <div class="head"><div class="avatar">${esc(f.name[0].toUpperCase())}</div>
         <div class="grow"><div class="title">${esc(f.name)}</div><div class="muted small">${count} movie${count === 1 ? '' : 's'} ranked</div></div>
-        <button class="primary" data-compare="${esc(f.code)}">Compare</button></div>
+        <button class="primary" data-compare="${esc(f.id)}">Compare</button></div>
       <div class="seg" role="group" aria-label="Status for ${esc(f.name)}">${seg}</div>
       <div class="friend-foot"><span class="muted small">${f.status === 'best'
         ? 'Shows an icon on movies they’ve seen.' : 'Stays out of the way until you compare.'}</span>
-        <button class="danger small" data-unfriend="${esc(f.code)}">Remove</button></div>
+        <button class="danger small" data-unfriend="${esc(f.id)}">Remove</button></div>
     </div>`;
   };
   return `<h1>Friends</h1>
@@ -148,8 +149,23 @@ function friendsScreen() {
     <div class="addtag"><input type="text" id="f-code" placeholder="Friend code" autocomplete="off" autocapitalize="characters">
       <button class="primary" id="f-add">Add friend</button></div>
     <p class="err small" id="f-err"></p>
-    ${isPractice ? '<p class="muted small">Practice mode: try the codes <b>SAM123</b> and <b>JORDAN7</b>. Real invites come when the app goes live.</p>' : ''}
-    ${friends.length ? friends.map(card).join('') : '<p class="empty">No friends yet.</p>'}`;
+    ${isPractice ? '<p class="muted small">Practice mode: try the codes <b>SAM123</b> and <b>JORDAN7</b>.</p>'
+      : `<p class="muted small">Your friend code is <b>${esc(me.code)}</b>. Send it to a friend so they can add you.</p>`}
+    ${requestsHtml()}
+    ${friends.length ? friends.map(card).join('') : '<p class="empty">No friends yet.</p>'}
+    ${isPractice ? '' : `<p class="muted small center">Signed in as ${esc(me.name)} · <button class="link" id="sign-out">Sign out</button></p>`}`;
+}
+
+// Friend requests waiting on you (Accept) or on them.
+function requestsHtml() {
+  const { incoming, outgoing } = store.requests();
+  if (!incoming.length && !outgoing.length) return '';
+  const row = (p, action) => `<li class="movie"><div class="avatar">${esc(p.name[0].toUpperCase())}</div>
+    <div class="info"><div class="title">${esc(p.name)}</div></div>${action}</li>`;
+  return `<h3>Friend requests</h3><div class="card"><ol class="movies">${
+    incoming.map((p) => row(p, `<button class="primary" data-accept="${esc(p.id)}">Accept</button>
+      <button class="danger small" data-unfriend="${esc(p.id)}" aria-label="Decline ${esc(p.name)}">Decline</button>`)).join('')}${
+    outgoing.map((p) => row(p, `<span class="muted small">Waiting for them</span>`)).join('')}</ol></div>`;
 }
 
 function compareScreen() {
@@ -232,12 +248,12 @@ function openRate(id) {
   document.addEventListener('keydown', onKey);
 
   const addTag = () => {
-    const t = $('#m-newtag').value.trim();
+    const t = $('#m-newtag').value.trim().slice(0, 30);
     if (!t) return;
-    store.addTag(t);
     tags.add(t);
     $('#m-tags').innerHTML = tagChips();
     $('#m-newtag').value = '';
+    attempt(() => store.addTag(t));
   };
 
   root.querySelector('.modal-back').addEventListener('click', (e) => {
@@ -245,12 +261,15 @@ function openRate(id) {
     if (t.classList.contains('modal-back') || t.id === 'm-cancel') close();
     else if (t.dataset.mtag != null) { tags.has(t.dataset.mtag) ? tags.delete(t.dataset.mtag) : tags.add(t.dataset.mtag); t.classList.toggle('on'); }
     else if (t.id === 'm-addtag') addTag();
-    else if (t.id === 'm-remove') { store.remove(id); close(); render(); toast(`Removed ${m.title}`); }
+    else if (t.id === 'm-remove') {
+      t.disabled = true;
+      attempt(() => store.remove(id), () => { close(); render(); toast(`Removed ${m.title}`); }, () => { t.disabled = false; });
+    }
     else if (t.id === 'm-save') {
-      store.rate(m, score, [...tags]);
-      close();
-      render();
-      afterSave(m, score);
+      t.disabled = true;
+      t.textContent = 'Saving…';
+      attempt(() => store.rate(m, score, [...tags]), () => { close(); render(); afterSave(m, score); },
+        () => { t.disabled = false; t.textContent = 'Save'; });
     }
   });
   $('#m-newtag').addEventListener('keydown', (e) => { if (e.key === 'Enter') addTag(); });
@@ -267,6 +286,12 @@ function afterSave(m, score) {
   const next = series && series.movies.find((x) => scoreOf(x) == null);
   if (next) toast(`Saved ${score}. Next in ${series.name}:`, { label: `Rank ${next.title}`, run: () => openRate(next.id) });
   else toast(`Saved ${m.title}: ${score}`);
+}
+
+// Runs a save. On success runs done(); on failure shows the reason and runs failed().
+async function attempt(work, done, failed) {
+  try { const result = await work(); done?.(result); }
+  catch (e) { toast(e.message || 'Something went wrong. Try again.'); failed?.(); }
 }
 
 let toastTimer;
@@ -289,21 +314,31 @@ document.addEventListener('click', (e) => {
   else if (t.dataset.order) { state.order = t.dataset.order; render(); }
   else if (t.dataset.tag != null) { state.tag = t.dataset.tag; render(); }
   else if (t.dataset.try) { state.query = t.dataset.try; render(); $('#q').focus(); }
-  else if (t.dataset.status) { store.setStatus(t.dataset.code, t.dataset.status); render(); }
+  else if (t.dataset.status) { attempt(() => store.setStatus(t.dataset.id, t.dataset.status), render); }
   else if (t.dataset.compare) { state.friend = t.dataset.compare; state.tab = 'compare'; render(); window.scrollTo(0, 0); }
   else if (t.dataset.unfriend) {
     const f = store.friend(t.dataset.unfriend);
-    if (f && confirm(`Remove ${f.name} from your friends?`)) { store.removeFriend(f.code); render(); toast(`Removed ${f.name}`); }
+    const name = f?.name || [...store.requests().incoming, ...store.requests().outgoing].find((p) => p.id === t.dataset.unfriend)?.name;
+    if (name && confirm(f ? `Remove ${name} from your friends?` : `Decline ${name}’s friend request?`)) {
+      attempt(() => store.removeFriend(t.dataset.unfriend), () => { render(); toast(f ? `Removed ${name}` : 'Request declined'); });
+    }
   }
+  else if (t.dataset.accept) attempt(() => store.acceptFriend(t.dataset.accept), () => { render(); toast('You are now friends.'); });
   else if (t.id === 'f-add') addFriend();
+  else if (t.id === 'sign-out') attempt(() => store.signOut(), () => location.reload());
 });
 
-function addFriend() {
-  const err = store.addFriend($('#f-code').value);
-  if (err) { $('#f-err').textContent = err; return; }
-  const added = store.friends().at(-1);
-  render();
-  toast(`${added.name} added as a Friend`);
+async function addFriend() {
+  const button = $('#f-add');
+  button.disabled = true;
+  try {
+    const msg = await store.addFriend($('#f-code').value);
+    render();
+    toast(msg);
+  } catch (e) {
+    $('#f-err').textContent = e.message;
+    button.disabled = false;
+  }
 }
 
 document.addEventListener('keydown', (e) => { if (e.target.id === 'f-code' && e.key === 'Enter') addFriend(); });
@@ -323,7 +358,61 @@ document.addEventListener('toggle', (e) => {
   e.target.open ? state.open.add(key) : state.open.delete(key);
 }, true);
 
-if (isPractice) {
-  $('#banner').innerHTML = '<div class="banner">Practice mode: rankings are saved only in this browser, using a small built-in movie list.</div>';
+// ---------- signing in (live mode only) ----------
+
+function authScreen(mode = 'signin', message = '') {
+  $('#tabs').hidden = true;
+  const signup = mode === 'signup';
+  $('#app').innerHTML = `<h1>${signup ? 'Create your account' : 'Sign in'}</h1>
+    <p class="muted small">Your rankings are saved to your account, so they show on every device.
+      Only you and the friends you accept can see them.</p>
+    <form id="auth" class="stack">
+      ${signup ? '<input type="text" id="a-name" placeholder="Your first name" maxlength="40" required autocomplete="given-name">' : ''}
+      <input type="email" id="a-email" placeholder="Email" required autocomplete="email">
+      <input type="password" id="a-pass" placeholder="Password${signup ? ' (at least 6 characters)' : ''}" minlength="6" required
+        autocomplete="${signup ? 'new-password' : 'current-password'}">
+      <button class="primary" type="submit">${signup ? 'Create account' : 'Sign in'}</button>
+      <p class="err small" id="a-err">${esc(message)}</p>
+    </form>
+    <p class="center small">${signup ? 'Already have an account?' : 'New here?'}
+      <button class="link" id="a-switch">${signup ? 'Sign in' : 'Create an account'}</button></p>`;
+  $('#a-switch').onclick = () => authScreen(signup ? 'signin' : 'signup');
+  $('#auth').onsubmit = async (e) => {
+    e.preventDefault();
+    const button = e.target.querySelector('button[type=submit]');
+    button.disabled = true;
+    $('#a-err').textContent = '';
+    try {
+      if (signup) {
+        const { needsConfirm } = await store.signUp($('#a-name').value, $('#a-email').value, $('#a-pass').value);
+        if (needsConfirm) {
+          $('#app').innerHTML = `<h1>Check your email</h1><p>We sent a link to confirm your account. Open it on this
+            device, then come back here and sign in.</p><button class="primary" onclick="location.reload()">Sign in</button>`;
+          return;
+        }
+      } else {
+        await store.signIn($('#a-email').value, $('#a-pass').value);
+      }
+      start();
+    } catch (err) {
+      $('#a-err').textContent = err.message || 'That didn’t work. Try again.';
+      button.disabled = false;
+    }
+  };
 }
-render();
+
+function start() {
+  $('#tabs').hidden = false;
+  $('#banner').innerHTML = isPractice
+    ? '<div class="banner">Practice mode: rankings are saved only in this browser, using a small built-in movie list.</div>'
+    : '<div class="banner">Search uses a small built-in movie list until full movie search is connected.</div>';
+  render();
+}
+
+try {
+  if (await store.currentUser()) start();
+  else authScreen();
+} catch (e) {
+  $('#app').innerHTML = `<h1>Can’t reach the database</h1><p class="muted">${esc(e.message || '')}</p>
+    <button class="primary" onclick="location.reload()">Try again</button>`;
+}
