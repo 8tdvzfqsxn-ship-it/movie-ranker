@@ -1,8 +1,8 @@
 // Where accounts, rankings and friends are kept.
 // Two versions with the same functions: practice mode (this browser only) and Supabase (live).
 // Both keep a copy in memory, so screens can read right away; saving waits for the database.
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../config.js?v=10';
-import { PRACTICE_FRIENDS } from './practice-friends.js?v=10';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../config.js?v=11';
+import { PRACTICE_FRIENDS } from './practice-friends.js?v=11';
 
 export const isPractice = !SUPABASE_URL || !SUPABASE_ANON_KEY;
 export const STATUSES = { friend: 'Friend', best: 'Best friend' };
@@ -46,6 +46,10 @@ function practiceStore() {
     friends: () => data.friends.map(withRatings),
     friend: (id) => { const f = data.friends.find((x) => x.code === id); return f && withRatings(f); },
     friendMovie: () => null,
+    isKeeper: () => false,
+    async sendFeedback() { throw new Error('Feedback works in the live app, once you’re signed in.'); },
+    async feedbackList() { return []; },
+    async updateFeedback() {},
     requests: () => ({ incoming: [], outgoing: [] }),
     async refresh() {},
     async addFriend(rawCode) {
@@ -80,12 +84,14 @@ async function supabaseStore() {
   let friends = [];
   let requests = { incoming: [], outgoing: [] };
   let friendMovies = new Map(); // movie details from friends' rankings, for Compare
+  let keeper = false;            // can read feedback (supabase/setup.sql: app_keepers)
 
   const toRating = (r) => ({ movie: r.movie, score: r.score, tags: r.tags, ratedAt: r.rated_at });
 
   // Loads everything the screens need: my profile and rankings, my friends, their rankings, my labels.
   async function load() {
     profile = ok(await sb.from('profiles').select('id, display_name, friend_code, custom_tags').eq('id', uid).single());
+    try { keeper = ok(await sb.rpc('is_keeper')) === true; } catch { keeper = false; } // before the feedback setup is run
     const mine = ok(await sb.from('ratings').select('movie_id, movie, score, tags, rated_at').eq('user_id', uid));
     ratings = Object.fromEntries(mine.map((r) => [r.movie_id, toRating(r)]));
 
@@ -158,6 +164,24 @@ async function supabaseStore() {
     friends: () => friends,
     friend: (id) => friends.find((f) => f.id === id),
     friendMovie: (id) => friendMovies.get(id) || null,
+    // Feedback (supabase/setup.sql: feedback). Anyone signed in can send; only the keeper reads and sets a status.
+    isKeeper: () => keeper,
+    async sendFeedback({ kind, message, appVersion }) {
+      const text = String(message || '').trim().slice(0, 2000);
+      if (!text) throw new Error('Write a few words first.');
+      ok(await sb.from('feedback').insert({
+        user_id: uid, kind: ['idea', 'problem', 'other'].includes(kind) ? kind : 'other', message: text,
+        display_name: (profile?.display_name || '').slice(0, 80) || null, app_version: String(appVersion || '').slice(0, 120) || null,
+      }));
+    },
+    async feedbackList() {
+      return ok(await sb.from('feedback').select('id, kind, message, display_name, app_version, status, created_at')
+        .order('created_at', { ascending: false }).limit(300));
+    },
+    async updateFeedback(id, status) {
+      if (!['new', 'planned', 'done', 'wont'].includes(status)) return;
+      ok(await sb.from('feedback').update({ status }).eq('id', id));
+    },
     // Calls the movie-search helper (supabase/functions/movie-search); turns its error answer into a readable message.
     async call(body) {
       const { data, error } = await sb.functions.invoke('movie-search', { body });

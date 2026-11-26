@@ -12,6 +12,7 @@
 //   { action: 'franchise', name }     → { group }: every movie in a franchise (Marvel, Pixar, ...)
 //   { action: 'details', id }         → { movie }: one movie with its series and franchise
 //   { action: 'match', title, year }  → { movie }: the best match for a title and year, or null
+//   { action: 'trending' }            → { items }: titles of the movies and shows trending on TMDB this week
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -287,6 +288,14 @@ Deno.serve(async (req) => {
       }
       case 'collection': return json({ group: await collectionGroup(Number(body.id)) });
       case 'show': return json({ group: await showGroup(Number(body.id)) });
+      case 'trending': {
+        const r = await tmdb('/trending/all/week');
+        // deno-lint-ignore no-explicit-any
+        const items = (r.results ?? []).filter((x: any) => x.media_type === 'movie' || x.media_type === 'tv')
+          // deno-lint-ignore no-explicit-any
+          .map((x: any) => String(x.title || x.name || '').trim()).filter(Boolean);
+        return json({ items: [...new Set(items)].slice(0, 8) });
+      }
       case 'franchise': {
         const f = FRANCHISES.find((x) => x.name === body.name);
         return f ? json({ group: await franchiseGroup(f) }) : json({ error: 'Unknown franchise.' }, 400);

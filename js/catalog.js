@@ -1,6 +1,6 @@
 // Finding movies and their groups (series and franchises).
 // Practice mode reads the built-in list in sample-movies.js.
-import { SERIES, FRANCHISE_STORY_ORDER, MOVIES } from './sample-movies.js?v=10';
+import { SERIES, FRANCHISE_STORY_ORDER, MOVIES } from './sample-movies.js?v=11';
 
 const movies = MOVIES.map(([id, title, date, genres, series, franchise]) => ({
   id, title, date, year: Number(date.slice(0, 4)),
@@ -59,3 +59,4 @@ export const franchise = async (name) => franchiseGroups.find((g) => g.name === 
 export const seriesOf = (m) => seriesGroups.find((g) => g.movies.some((x) => x.id === m.id)) || null;
 export const complete = async (m) => m;
 export const match = async () => null;
+export const trending = async () => null; // practice mode keeps its fixed suggestions

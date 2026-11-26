@@ -1,7 +1,7 @@
 // Movie Ranker: screens and buttons.
-import { createStore, isPractice, STATUSES } from './store.js?v=10';
-import * as practiceCatalog from './catalog.js?v=10';
-import { createLiveCatalog } from './catalog-live.js?v=10';
+import { createStore, isPractice, STATUSES } from './store.js?v=11';
+import * as practiceCatalog from './catalog.js?v=11';
+import { createLiveCatalog } from './catalog-live.js?v=11';
 
 // The iPhone Duo's inside screen (lessons from Song Ranker). Safari doesn't tell pages where the fold is, so the
 // layout goes by screen size: about 669 × 951 points held tall, 951 × 669 held wide (fold down the middle).
@@ -26,7 +26,8 @@ fitScreen();
 const store = await createStore();
 // Practice mode searches the built-in list; live mode searches TMDB and OMDb through Supabase.
 const catalog = isPractice ? practiceCatalog : createLiveCatalog((body) => store.call(body));
-const state = { tab: 'rank', query: '', order: 'release', tag: '', open: new Set(), friend: null };
+const state = { tab: 'rank', query: '', order: 'release', tag: '', open: new Set(), friend: null, trending: null };
+const VERSION = document.querySelector('.version')?.textContent || '';
 
 const MOMENTS = ['Date night', 'Comfort movie', 'Family night', 'With friends', 'Rainy day', 'Holiday', 'Rewatch often'];
 const BANDS = [[90, 'All-time favorite'], [75, 'Loved it'], [60, 'Liked it'], [40, 'It was fine'], [20, "Didn't like it"], [1, 'Hated it']];
@@ -113,13 +114,21 @@ function orderSwitch(note) {
 
 // ---------- screens ----------
 
+// Suggestions under the search box: live, what's trending on TMDB this week; practice, a fixed list.
 function rankScreen() {
-  const tries = catalog.live ? ['Star Wars', 'Marvel', 'Toy Story', 'Harry Potter', 'Breaking Bad', 'The Office']
-    : ['Star Wars', 'Marvel', 'Toy Story', 'Harry Potter', 'Lord of the Rings', 'Jaws'];
+  const tries = catalog.live ? (state.trending || []) : ['Star Wars', 'Marvel', 'Toy Story', 'Harry Potter', 'Lord of the Rings', 'Jaws'];
+  if (catalog.live && state.trending === null) loadTrending();
   return `<div class="pane-head"><h1>${catalog.live ? 'Rank a movie or show' : 'Rank a movie'}</h1>
     <input type="search" id="q" placeholder="${catalog.live ? 'Search a movie, TV show, series or franchise' : 'Search a movie, series or franchise'}" value="${esc(state.query)}" autocomplete="off">
-    <div class="chips" ${state.query ? 'hidden' : ''}>${tries.map((t) => `<button class="chip" data-try="${esc(t)}">${esc(t)}</button>`).join('')}</div></div>
+    <div class="chips" ${state.query || !tries.length ? 'hidden' : ''}>${catalog.live && tries.length ? '<span class="chips-label">Trending this week</span>' : ''}${
+      tries.map((t) => `<button class="chip" data-try="${esc(t)}">${esc(t)}</button>`).join('')}</div></div>
     <div class="pane-list"><div id="results"></div></div>`;
+}
+
+async function loadTrending() {
+  state.trending = [];
+  try { state.trending = await catalog.trending(); } catch { state.trending = []; }
+  if (state.tab === 'rank' && !state.query) render();
 }
 
 // Shows search results. Live search waits until typing pauses, and ignores answers to older searches.
@@ -208,7 +217,7 @@ function friendsScreen() {
       : `<p class="muted small">Your friend code is <b>${esc(me.code)}</b>. Send it to a friend so they can add you.</p>`}</div>
     <div class="pane-list">${requestsHtml()}
     ${friends.length ? friends.map(card).join('') : '<p class="empty">No friends yet.</p>'}
-    ${isPractice ? '' : `<p class="muted small center">Signed in as ${esc(me.name)} · <button class="link" id="sign-out">Sign out</button></p>`}</div>`;
+</div>`;
 }
 
 // Friend requests waiting on you (Accept) or on them.
@@ -400,7 +409,7 @@ document.addEventListener('click', (e) => {
   }
   else if (t.dataset.accept) attempt(() => store.acceptFriend(t.dataset.accept), () => { render(); toast('You are now friends.'); });
   else if (t.id === 'f-add') addFriend();
-  else if (t.id === 'sign-out') attempt(() => store.signOut(), () => location.reload());
+  else if (t.id === 'me-btn') openProfile();
 });
 
 async function addFriend() {
@@ -433,12 +442,121 @@ document.addEventListener('toggle', (e) => {
   e.target.open ? state.open.add(key) : state.open.delete(key);
 }, true);
 
+// ---------- profile menu: invite a friend, feedback, sign out ----------
+
+// A pop-up sheet in the same style as the ranking window. Returns its element; close() removes it.
+function sheet(title, body) {
+  const root = $('#modal-root');
+  root.innerHTML = `<div class="modal-back"><div class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+    <div class="sheet-head"><h2>${esc(title)}</h2><button class="x-btn" data-close aria-label="Close">×</button></div>${body}</div></div>`;
+  const back = root.querySelector('.modal-back');
+  const close = () => { root.innerHTML = ''; document.removeEventListener('keydown', onKey); };
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', onKey);
+  back.addEventListener('click', (e) => { if (e.target === back || e.target.closest('[data-close]')) close(); });
+  return { el: back, close };
+}
+
+function openProfile() {
+  const me = store.me();
+  const s = sheet('Profile', isPractice
+    ? `<p class="muted">Practice mode: you're not signed in. Invites, feedback and signing out work in the live app.</p>`
+    : `<div class="me-card"><div class="avatar big">${esc((me.name || 'Y')[0].toUpperCase())}</div>
+        <div><div class="title">${esc(me.name)}</div><div class="muted small">Friend code <b>${esc(me.code || '')}</b></div></div></div>
+      <div class="menu">
+        <button data-act="invite"><span>Invite a friend</span><span class="muted small">Send a link to join and connect with you</span></button>
+        <button data-act="feedback"><span>Send feedback</span><span class="muted small">Ideas, problems, anything</span></button>
+        ${store.isKeeper() ? '<button data-act="inbox"><span>Feedback inbox</span><span class="muted small">Only you can see this</span></button>' : ''}
+        <button data-act="signout" class="danger"><span>Sign out</span></button>
+      </div>`);
+  s.el.addEventListener('click', (e) => {
+    const act = e.target.closest('[data-act]')?.dataset.act;
+    if (act === 'invite') { s.close(); invite(); }
+    else if (act === 'feedback') { s.close(); openFeedback(); }
+    else if (act === 'inbox') { s.close(); openInbox(); }
+    else if (act === 'signout') attempt(() => store.signOut(), () => location.reload());
+  });
+}
+
+// Invite link: the app's address with your friend code. Whoever opens it and signs in sends you a friend request.
+async function invite() {
+  const url = `${location.origin}${location.pathname}?invite=${encodeURIComponent(store.me().code)}`;
+  const text = 'Rank movies and shows with me on Movie Ranker:';
+  try {
+    if (navigator.share) { await navigator.share({ title: 'Movie Ranker', text, url }); return; }
+  } catch (e) { if (e.name === 'AbortError') return; }
+  try { await navigator.clipboard.writeText(`${text} ${url}`); toast('Invite link copied'); }
+  catch { sheet('Invite a friend', `<p>Send this link to a friend:</p><input type="text" readonly value="${esc(url)}" onfocus="this.select()">`); }
+}
+
+// Opening an invite link remembers the code until you're signed in, then sends the friend request.
+const INVITE_KEY = 'movie-ranker:invite';
+function pendingInvite() { try { return localStorage.getItem(INVITE_KEY); } catch { return null; } }
+(function keepInviteFromLink() {
+  const code = new URLSearchParams(location.search).get('invite');
+  if (!code) return;
+  try { localStorage.setItem(INVITE_KEY, code.trim().toUpperCase().slice(0, 12)); } catch { /* private window */ }
+  history.replaceState(null, '', location.pathname);
+})();
+async function acceptInvite() {
+  const code = pendingInvite();
+  if (!code) return;
+  try { localStorage.removeItem(INVITE_KEY); } catch { /* fine */ }
+  if (code === store.me().code) return;
+  try { const msg = await store.addFriend(code); toast(msg); if (state.tab === 'friends') render(); }
+  catch (e) { toast(e.message || 'That invite didn’t work.'); }
+}
+
+function openFeedback() {
+  let kind = 'idea';
+  const s = sheet('Send feedback', `<p class="muted small">Tell us what you'd like, or what isn't working. Only the app's keeper reads these.</p>
+    <div class="seg" role="group" aria-label="Kind"><button data-kind="idea" class="on">Idea</button><button data-kind="problem">Problem</button><button data-kind="other">Other</button></div>
+    <textarea id="fb-text" rows="5" maxlength="2000" placeholder="Write here…"></textarea>
+    <p class="err small" id="fb-err"></p>
+    <div class="actions"><div class="right"><button data-close>Cancel</button><button class="primary" id="fb-send">Send</button></div></div>`);
+  s.el.addEventListener('click', (e) => {
+    const k = e.target.closest('[data-kind]');
+    if (k) { kind = k.dataset.kind; s.el.querySelectorAll('[data-kind]').forEach((b) => b.classList.toggle('on', b === k)); }
+    if (e.target.id === 'fb-send') {
+      e.target.disabled = true;
+      store.sendFeedback({ kind, message: $('#fb-text').value, appVersion: `${VERSION} · ${innerWidth}×${innerHeight}` })
+        .then(() => { s.close(); toast('Thanks! Feedback sent'); })
+        .catch((err) => { $('#fb-err').textContent = err.message; e.target.disabled = false; });
+    }
+  });
+}
+
+const STATUS = { new: 'New', planned: 'Planned', done: 'Done', wont: 'Won’t do' };
+async function openInbox() {
+  const s = sheet('Feedback inbox', '<p class="muted">Loading…</p>');
+  let items = [];
+  const draw = () => {
+    s.el.querySelector('.modal').innerHTML = `<div class="sheet-head"><h2>Feedback inbox</h2><button class="x-btn" data-close aria-label="Close">×</button></div>
+      ${items.length ? items.map((f) => `<div class="fb card">
+        <div class="muted small">${esc(f.display_name || 'Someone')} · ${esc(f.kind)} · ${new Date(f.created_at).toLocaleDateString()}</div>
+        <p>${esc(f.message)}</p>
+        <div class="seg">${Object.entries(STATUS).map(([v, l]) => `<button data-fb="${esc(f.id)}" data-status="${v}" class="${f.status === v ? 'on' : ''}">${l}</button>`).join('')}</div>
+      </div>`).join('') : '<p class="empty">No feedback yet.</p>'}`;
+  };
+  try { items = await store.feedbackList(); draw(); } catch (e) { s.el.querySelector('.modal').innerHTML += `<p class="err">${esc(e.message)}</p>`; }
+  s.el.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-fb]');
+    if (!b) return;
+    e.stopPropagation();
+    attempt(() => store.updateFeedback(b.dataset.fb, b.dataset.status), () => {
+      items.find((f) => f.id === b.dataset.fb).status = b.dataset.status; draw();
+    });
+  }, true);
+}
+
 // ---------- signing in (live mode only) ----------
 
 function authScreen(mode = 'signin', message = '') {
   $('#tabs').hidden = true;
   const signup = mode === 'signup';
-  $('#app').innerHTML = `<div class="pane-head"><h1>${signup ? 'Create your account' : 'Sign in'}</h1>
+  $('#me-btn').hidden = true;
+  $('#app').innerHTML = `<div class="pane-head">${pendingInvite() ? '<p class="banner">A friend invited you to Movie Ranker. Sign in or create an account and you’ll be connected.</p>' : ''}
+    <h1>${signup ? 'Create your account' : 'Sign in'}</h1>
     <p class="muted small">Your rankings are saved to your account, so they show on every device.
       Only you and the friends you accept can see them.</p>
     <form id="auth" class="stack">
@@ -478,6 +596,10 @@ function authScreen(mode = 'signin', message = '') {
 
 function start() {
   $('#tabs').hidden = false;
+  const btn = $('#me-btn');
+  btn.querySelector('.avatar').textContent = (store.me().name || 'Y')[0].toUpperCase();
+  btn.hidden = false;
+  if (!isPractice) acceptInvite();
   $('#banner').innerHTML = isPractice
     ? '<div class="banner">Practice mode: rankings are saved only in this browser, using a small built-in movie list.</div>' : '';
   render();
