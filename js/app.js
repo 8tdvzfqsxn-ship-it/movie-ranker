@@ -1,17 +1,24 @@
 // Movie Ranker: screens and buttons.
-import { createStore, isPractice, STATUSES } from './store.js?v=9';
-import * as practiceCatalog from './catalog.js?v=9';
-import { createLiveCatalog } from './catalog-live.js?v=9';
+import { createStore, isPractice, STATUSES } from './store.js?v=10';
+import * as practiceCatalog from './catalog.js?v=10';
+import { createLiveCatalog } from './catalog-live.js?v=10';
 
 // The iPhone Duo's inside screen (lessons from Song Ranker). Safari doesn't tell pages where the fold is, so the
 // layout goes by screen size: about 669 × 951 points held tall, 951 × 669 held wide (fold down the middle).
 // Regular iPhones, upright or sideways, never match these.
 const duoTall = matchMedia('(min-width: 640px) and (max-width: 699px) and (min-height: 700px)');
 const duoWide = matchMedia('(min-width: 900px) and (max-width: 1000px) and (min-height: 450px) and (max-height: 700px)');
+// Held wide, the tabs sit in the strip under the clock (style.css v10). They start 222 points down the screen, which
+// clears the clock, Wi-Fi, battery and the music ring; when Safari's own bars take some of the screen, the page
+// starts lower, so the column moves up by the same amount (Song Ranker's measurement, v25–v26).
+const DUO_SHORT = 669;
 const fitScreen = () => {
-  document.documentElement.classList.toggle('duo-tall', duoTall.matches);
-  document.documentElement.classList.toggle('duo-wide', duoWide.matches);
+  const root = document.documentElement;
+  root.classList.toggle('duo-tall', duoTall.matches);
+  root.classList.toggle('duo-wide', duoWide.matches);
+  if (duoWide.matches) root.style.setProperty('--rail-top', `${Math.max(16, 222 - Math.max(0, DUO_SHORT - innerHeight))}px`);
 };
+addEventListener('resize', fitScreen);
 duoTall.addEventListener('change', fitScreen);
 duoWide.addEventListener('change', fitScreen);
 fitScreen();

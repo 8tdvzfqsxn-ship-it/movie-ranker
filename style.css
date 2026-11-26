@@ -318,3 +318,29 @@ html.duo-wide .splash-name, html.duo-tall .splash-name { font-size: calc(1.7rem 
 #toast .x { flex: none; background: transparent; color: var(--bg); padding: 4px 8px; font-size: 1.2rem; line-height: 1; }
 /* Duo held wide: the note sits in the right half, under the list. */
 html.duo-wide #toast { left: calc(50vw + 14px); right: max(16px, env(safe-area-inset-right)); margin: 0; }
+
+/* ---------------------------------------------------------------- tab icons, and the Duo's side column (v10)
+   Tabs carry a small icon, shown only in the Duo's side column. Held wide, the Duo keeps its clock, Wi-Fi and
+   battery in a strip down the right edge; the tabs become a column of buttons in that strip, under the clock, as in
+   Song Ranker (v23–v26). The column starts at --rail-top (js/app.js), 222 points down, which also clears the music
+   ring the Duo shows around the clock while something is playing. */
+.tabs .ic { display: none; }
+html.duo-wide .tabs {
+  position: fixed; z-index: 5; right: 0; top: var(--rail-top, 222px); bottom: calc(10px + env(safe-area-inset-bottom));
+  width: max(76px, env(safe-area-inset-right)); margin: 0; padding: 0;
+  flex-direction: column; align-items: center; justify-content: flex-start; gap: 4px; overflow-y: auto; scrollbar-width: none;
+}
+html.duo-wide .tabs button {
+  flex: none; display: flex; flex-direction: column; align-items: center; gap: 3px; width: 70px;
+  padding: 2px 0; background: none; border-radius: 14px; color: var(--text); font-weight: 400;
+}
+html.duo-wide .tabs .ic { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; background: var(--chip); }
+html.duo-wide .tabs svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+html.duo-wide .tabs .rl { font-size: .68rem; font-weight: 600; color: var(--muted); line-height: 1.15; }
+html.duo-wide .tabs button.on { background: none; color: var(--text); }
+html.duo-wide .tabs button.on .ic { background: var(--accent); color: var(--accent-text); }
+html.duo-wide .tabs button.on .rl { color: var(--accent); }
+/* The page keeps clear of the column, and starts a little lower so the header isn't against the top edge. */
+html.duo-wide body { padding-right: max(76px, env(safe-area-inset-right)); padding-top: max(22px, env(safe-area-inset-top)); }
+html.duo-wide .pane-list { padding-top: 0; }
+html.duo-wide #toast { right: calc(max(76px, env(safe-area-inset-right)) + 8px); }
