@@ -268,18 +268,20 @@ html.duo-wide .brand .name, html.duo-tall .brand .name { font-size: 1.7rem; }
 }
 #splash.leaving { background-color: transparent; pointer-events: none; }
 @keyframes splash-safety { to { opacity: 0; visibility: hidden; } }
-/* Same layout as the header's logo and name, 2.8 times bigger, so it can shrink straight into the header. */
-.splash-brand { display: flex; align-items: center; gap: 22px; transform-origin: 0 0; will-change: transform; }
-.splash-logo { width: 96px; height: 96px; display: block; flex-shrink: 0; overflow: visible; }
+/* Same layout as the header's logo and name, up to 2.8 times bigger, so it can shrink straight into the header. */
+/* --u is the size of one header pixel on the splash: 2.8 at most, less when the screen is too narrow for that, so
+   logo and name always fit with 24px to spare on each side. The header brand is about 237px wide (256px on the Duo). */
+#splash { --u: min(2.8px, calc((100vw - 48px) / 237)); }
+html.duo-wide #splash, html.duo-tall #splash { --u: min(2.8px, calc((100vw - 48px) / 256)); }
+.splash-brand { display: flex; align-items: center; gap: calc(8 * var(--u)); transform-origin: 0 0; will-change: transform; }
+.splash-logo { width: calc(34 * var(--u)); height: calc(34 * var(--u)); display: block; flex-shrink: 0; overflow: visible; }
 .splash-name {
   font-family: "Futura-CondensedExtraBold", "Futura Condensed ExtraBold", "AvenirNextCondensed-Heavy",
     "Avenir Next Condensed", Impact, "Arial Narrow", sans-serif;
   font-weight: 800; font-stretch: condensed; text-transform: uppercase;
-  font-size: calc(1.55rem * 2.8); line-height: 1; letter-spacing: .06em; color: var(--text); white-space: nowrap;
+  font-size: calc(24.8 * var(--u)); line-height: 1; letter-spacing: .06em; color: var(--text); white-space: nowrap;
 }
-html.duo-wide .splash-name, html.duo-tall .splash-name { font-size: calc(1.7rem * 2.8); }
-/* Narrow phones: the big name would not fit beside the logo, so it starts a little smaller. */
-@media (max-width: 480px) { .splash-name { font-size: calc(1.55rem * 1.6); } .splash-logo { width: 55px; height: 55px; } .splash-brand { gap: 13px; } }
+html.duo-wide .splash-name, html.duo-tall .splash-name { font-size: calc(27.2 * var(--u)); }
 
 .splash-logo .sq { transform-box: fill-box; transform-origin: center; animation: sq-in .22s ease-out both; }
 .splash-logo .blk { transform-box: fill-box; transform-origin: bottom; animation: blk-rise .42s cubic-bezier(.2, .9, .3, 1.15) both; }
@@ -302,7 +304,6 @@ html.duo-wide .splash-name, html.duo-tall .splash-name { font-size: calc(1.7rem 
   #splash { transition: opacity .2s ease; }
   #splash.leaving { opacity: 0; }
 }
-@media (max-width: 400px) { .splash-name { font-size: calc(1.55rem * 1.4); } .splash-logo { width: 48px; height: 48px; } .splash-brand { gap: 11px; } }
 
 /* ---------------------------------------------------------------- the small note at the bottom (v9)
    One line, no wider than a phone: "Saved 85", an optional "Next: …" button (long titles end in …) and ×.
