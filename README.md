@@ -37,6 +37,14 @@ Start from Song Ranker's ranking (1 to 100, tags, compare with friends), plus mo
   It keeps the name Movie Ranker.
 - **Real posters:** these come from TMDB once the app goes live. Practice mode shows colored tiles.
 
+## Logo (v7)
+
+A winner's podium made of film strips: 1st in the middle, 2nd on the left, 3rd on the right.
+- `img/logo-mono.svg`: black and white, used in the app header and browser tab, and for documents.
+- `img/logo.svg`: the color version (gold, silver and bronze on red), kept for later.
+- `img/icon-square.svg` and `img/apple-touch-icon.png`: the iPhone Home Screen icon (iPhone rounds the corners).
+- The name in the header uses Futura Condensed ExtraBold, which comes with iPhones and Macs, for a cinema-marquee look.
+
 ## Screens (v6)
 
 - **Every iPhone, upright or sideways:** one column that keeps clear of the notch, Dynamic Island and home bar.

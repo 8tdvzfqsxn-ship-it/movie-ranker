@@ -1,7 +1,7 @@
 // Movie Ranker: screens and buttons.
-import { createStore, isPractice, STATUSES } from './store.js?v=6';
-import * as practiceCatalog from './catalog.js?v=6';
-import { createLiveCatalog } from './catalog-live.js?v=6';
+import { createStore, isPractice, STATUSES } from './store.js?v=7';
+import * as practiceCatalog from './catalog.js?v=7';
+import { createLiveCatalog } from './catalog-live.js?v=7';
 
 // The iPhone Duo's inside screen (lessons from Song Ranker). Safari doesn't tell pages where the fold is, so the
 // layout goes by screen size: about 669 × 951 points held tall, 951 × 669 held wide (fold down the middle).
