@@ -1,7 +1,7 @@
 // Movie Ranker: screens and buttons.
-import { createStore, isPractice, STATUSES } from './store.js?v=8';
-import * as practiceCatalog from './catalog.js?v=8';
-import { createLiveCatalog } from './catalog-live.js?v=8';
+import { createStore, isPractice, STATUSES } from './store.js?v=9';
+import * as practiceCatalog from './catalog.js?v=9';
+import { createLiveCatalog } from './catalog-live.js?v=9';
 
 // The iPhone Duo's inside screen (lessons from Song Ranker). Safari doesn't tell pages where the fold is, so the
 // layout goes by screen size: about 669 × 951 points held tall, 951 × 669 held wide (fold down the middle).
@@ -344,8 +344,8 @@ function openRate(id) {
 function afterSave(m, score) {
   const series = catalog.seriesOf(m);
   const next = series && series.movies.find((x) => scoreOf(x) == null);
-  if (next) toast(`Saved ${score}. Next in ${series.name}:`, { label: `Rank ${next.title}`, run: () => openRate(next.id) });
-  else toast(`Saved ${m.title}: ${score}`);
+  if (next) toast(`Saved ${score}`, { label: `Next: ${next.title}`, run: () => openRate(next.id) });
+  else toast(`Saved ${score}`);
 }
 
 // Runs a save. On success runs done(); on failure shows the reason and runs failed().
@@ -355,14 +355,22 @@ async function attempt(work, done, failed) {
 }
 
 let toastTimer;
+// A small one-line note at the bottom of the screen. It goes away by itself, when you tap ×, or as soon as you
+// tap anywhere else, so it never sits in the way.
 function toast(text, action) {
   const el = $('#toast');
-  el.innerHTML = `<span>${esc(text)}</span>${action ? `<button>${esc(action.label)}</button>` : ''}`;
-  if (action) el.querySelector('button').onclick = () => { el.classList.remove('show'); action.run(); };
+  el.innerHTML = `<span class="msg">${esc(text)}</span>${action ? `<button class="act">${esc(action.label)}</button>` : ''}`
+    + '<button class="x" aria-label="Close">×</button>';
+  if (action) el.querySelector('.act').onclick = () => { hideToast(); action.run(); };
+  el.querySelector('.x').onclick = hideToast;
   el.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), action ? 6000 : 2500);
+  toastTimer = setTimeout(hideToast, action ? 4500 : 2200);
 }
+function hideToast() { clearTimeout(toastTimer); $('#toast').classList.remove('show'); }
+document.addEventListener('pointerdown', (e) => {
+  if ($('#toast').classList.contains('show') && !e.target.closest('#toast')) hideToast();
+}, true);
 
 // ---------- wiring ----------
 

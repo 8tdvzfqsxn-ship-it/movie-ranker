@@ -246,7 +246,7 @@ html.duo-wide #toast { left: 75vw; }
 /* ---------------------------------------------------------------- header logo and name (v7)
    The black-and-white film podium logo, and the name in tall, blocky poster letters like a cinema marquee.
    Futura Condensed ExtraBold comes with every iPhone and Mac, so nothing is downloaded. */
-.brand .logo { width: 34px; height: 34px; border-radius: 8px; display: block; flex-shrink: 0; }
+.brand .logo { width: 34px; height: 34px; display: block; flex-shrink: 0; } /* the logo draws its own rounded edge */
 .brand .name {
   font-family: "Futura-CondensedExtraBold", "Futura Condensed ExtraBold", "AvenirNextCondensed-Heavy",
     "Avenir Next Condensed", Impact, "Arial Narrow", sans-serif;
@@ -302,3 +302,19 @@ html.duo-wide .splash-name, html.duo-tall .splash-name { font-size: calc(1.7rem 
   #splash.leaving { opacity: 0; }
 }
 @media (max-width: 400px) { .splash-name { font-size: calc(1.55rem * 1.4); } .splash-logo { width: 48px; height: 48px; } .splash-brand { gap: 11px; } }
+
+/* ---------------------------------------------------------------- the small note at the bottom (v9)
+   One line, no wider than a phone: "Saved 85", an optional "Next: …" button (long titles end in …) and ×.
+   It never covers more than a strip at the bottom, and any tap elsewhere closes it (js/app.js toast). */
+#toast {
+  left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right)); margin: 0 auto;
+  width: auto; max-width: 440px; transform: translateY(calc(100% + 40px));
+  padding: 8px 8px 8px 14px; gap: 8px; font-size: .92rem;
+}
+#toast.show { transform: translateY(0); }
+#toast .msg { flex: none; font-weight: 600; white-space: nowrap; }
+#toast .act { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding: 8px 10px; font-size: .88rem; text-align: left; }
+#toast .x { flex: none; background: transparent; color: var(--bg); padding: 4px 8px; font-size: 1.2rem; line-height: 1; }
+/* Duo held wide: the note sits in the right half, under the list. */
+html.duo-wide #toast { left: calc(50vw + 14px); right: max(16px, env(safe-area-inset-right)); margin: 0; }
