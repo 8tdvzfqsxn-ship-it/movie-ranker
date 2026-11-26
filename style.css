@@ -254,3 +254,51 @@ html.duo-wide #toast { left: 75vw; }
   font-size: 1.55rem; line-height: 1; letter-spacing: .06em;
 }
 html.duo-wide .brand .name, html.duo-tall .brand .name { font-size: 1.7rem; }
+
+/* ---------------------------------------------------------------- opening animation (v8)
+   While the app loads: the logo square appears, the film-strip blocks rise one at a time (bronze, silver, then gold
+   last and tallest) with their sprocket holes running like film, and the name lights up. Then the logo and name
+   move into their place in the header (js/app.js endSplash). Under a second; faster if the app is already ready. */
+#splash {
+  position: fixed; inset: 0; z-index: 50; background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  transition: background-color .38s ease;
+  animation: splash-safety 0s linear 6s forwards; /* if the app ever fails to start, never cover it for long */
+}
+#splash.leaving { background-color: transparent; pointer-events: none; }
+@keyframes splash-safety { to { opacity: 0; visibility: hidden; } }
+/* Same layout as the header's logo and name, 2.8 times bigger, so it can shrink straight into the header. */
+.splash-brand { display: flex; align-items: center; gap: 22px; transform-origin: 0 0; will-change: transform; }
+.splash-logo { width: 96px; height: 96px; display: block; flex-shrink: 0; overflow: visible; }
+.splash-name {
+  font-family: "Futura-CondensedExtraBold", "Futura Condensed ExtraBold", "AvenirNextCondensed-Heavy",
+    "Avenir Next Condensed", Impact, "Arial Narrow", sans-serif;
+  font-weight: 800; font-stretch: condensed; text-transform: uppercase;
+  font-size: calc(1.55rem * 2.8); line-height: 1; letter-spacing: .06em; color: var(--text); white-space: nowrap;
+}
+html.duo-wide .splash-name, html.duo-tall .splash-name { font-size: calc(1.7rem * 2.8); }
+/* Narrow phones: the big name would not fit beside the logo, so it starts a little smaller. */
+@media (max-width: 480px) { .splash-name { font-size: calc(1.55rem * 1.6); } .splash-logo { width: 55px; height: 55px; } .splash-brand { gap: 13px; } }
+
+.splash-logo .sq { transform-box: fill-box; transform-origin: center; animation: sq-in .22s ease-out both; }
+.splash-logo .blk { transform-box: fill-box; transform-origin: bottom; animation: blk-rise .42s cubic-bezier(.2, .9, .3, 1.15) both; }
+.splash-logo .b3 { animation-delay: .1s; }
+.splash-logo .b2 { animation-delay: .22s; }
+.splash-logo .b1 { animation-delay: .34s; }
+.splash-logo .holes { animation: film-run .42s linear both; }
+.splash-logo .b3 .holes { animation-delay: .1s; }
+.splash-logo .b2 .holes { animation-delay: .22s; }
+.splash-logo .b1 .holes { animation-delay: .34s; }
+.splash-name { animation: name-on .38s ease-out .52s both; }
+@keyframes sq-in { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: none; } }
+@keyframes blk-rise { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes film-run { from { transform: translateY(24px); } to { transform: translateY(0); } }
+@keyframes name-on { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
+
+/* Reduce Motion (iPhone Settings → Accessibility → Motion): no movement, just the logo for a moment. */
+@media (prefers-reduced-motion: reduce) {
+  .splash-logo .sq, .splash-logo .blk, .splash-logo .holes, .splash-name { animation: none; }
+  #splash { transition: opacity .2s ease; }
+  #splash.leaving { opacity: 0; }
+}
+@media (max-width: 400px) { .splash-name { font-size: calc(1.55rem * 1.4); } .splash-logo { width: 48px; height: 48px; } .splash-brand { gap: 11px; } }

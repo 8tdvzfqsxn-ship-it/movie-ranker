@@ -45,6 +45,14 @@ A winner's podium made of film strips: 1st in the middle, 2nd on the left, 3rd o
 - `img/icon-square.svg` and `img/apple-touch-icon.png`: the iPhone Home Screen icon (iPhone rounds the corners).
 - The name in the header uses Futura Condensed ExtraBold, which comes with iPhones and Macs, for a cinema-marquee look.
 
+## Opening animation (v8)
+
+While the app loads, the logo's film-strip blocks rise one at a time (bronze, silver, then gold) with the sprocket
+holes running like film, and the name fades in. Then the logo and name glide into the header. It takes under a
+second, hurries if the app is ready first, never waits more than about a second, and with Reduce Motion turned on
+it just shows the logo briefly. Markup in `index.html` (`#splash`), movement in `style.css`, timing in `js/app.js`
+(`endSplash`).
+
 ## Screens (v6)
 
 - **Every iPhone, upright or sideways:** one column that keeps clear of the notch, Dynamic Island and home bar.

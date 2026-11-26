@@ -1,7 +1,7 @@
 // Movie Ranker: screens and buttons.
-import { createStore, isPractice, STATUSES } from './store.js?v=7';
-import * as practiceCatalog from './catalog.js?v=7';
-import { createLiveCatalog } from './catalog-live.js?v=7';
+import { createStore, isPractice, STATUSES } from './store.js?v=8';
+import * as practiceCatalog from './catalog.js?v=8';
+import { createLiveCatalog } from './catalog-live.js?v=8';
 
 // The iPhone Duo's inside screen (lessons from Song Ranker). Safari doesn't tell pages where the fold is, so the
 // layout goes by screen size: about 669 × 951 points held tall, 951 × 669 held wide (fold down the middle).
@@ -483,6 +483,31 @@ async function linkOldRankings() {
   if (linked) { render(); toast(`Linked ${linked} earlier ranking${linked === 1 ? '' : 's'} to full movie search.`); }
 }
 
+// ---------- opening animation ----------
+// The podium rises while the app loads (index.html #splash, style.css). When the app is ready: if the animation is
+// still playing it hurries to the end, then the logo and name shrink into their place in the header and the
+// cover fades away. With Reduce Motion on there's no movement, just a short fade.
+async function endSplash() {
+  const splash = document.getElementById('splash');
+  if (!splash) return;
+  const brand = splash.querySelector('.splash-brand');
+  const playing = brand.getAnimations({ subtree: true });
+  playing.forEach((a) => { a.playbackRate = 3; });
+  // Never wait more than about a second (animations pause while the page is in the background).
+  await Promise.race([Promise.all(playing.map((a) => a.finished.catch(() => {}))), new Promise((r) => setTimeout(r, 1200))]);
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const to = document.querySelector('.top .brand')?.getBoundingClientRect();
+  const from = brand.getBoundingClientRect();
+  if (!reduce && to && to.width && from.width) {
+    const scale = to.height / from.height;
+    brand.style.transition = 'transform .38s cubic-bezier(.4, 0, .2, 1)';
+    brand.style.transform = `translate(${to.left - from.left}px, ${to.top - from.top}px) scale(${scale})`;
+  }
+  splash.classList.add('leaving');
+  await new Promise((r) => setTimeout(r, reduce ? 200 : 400));
+  splash.remove();
+}
+
 try {
   if (await store.currentUser()) start();
   else authScreen();
@@ -490,3 +515,4 @@ try {
   $('#app').innerHTML = `<h1>Can’t reach the database</h1><p class="muted">${esc(e.message || '')}</p>
     <button class="primary" onclick="location.reload()">Try again</button>`;
 }
+endSplash();
