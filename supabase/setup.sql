@@ -1,4 +1,4 @@
--- Movie Ranker database setup.
+-- Film Ranker database setup.
 -- Paste this whole file into Supabase → SQL Editor → New query, then press Run.
 -- Safe to run again if you need to.
 

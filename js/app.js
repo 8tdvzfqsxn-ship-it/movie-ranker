@@ -1,7 +1,7 @@
-// Movie Ranker: screens and buttons.
-import { createStore, isPractice, STATUSES } from './store.js?v=16';
-import * as practiceCatalog from './catalog.js?v=16';
-import { createLiveCatalog } from './catalog-live.js?v=16';
+// Film Ranker: screens and buttons.
+import { createStore, isPractice, STATUSES } from './store.js?v=17';
+import * as practiceCatalog from './catalog.js?v=17';
+import { createLiveCatalog } from './catalog-live.js?v=17';
 
 // The iPhone Duo's inside screen (lessons from Song Ranker). Safari doesn't tell pages where the fold is, so the
 // layout goes by screen size: about 669 × 951 points held tall, 951 × 669 held wide (fold down the middle).
@@ -514,9 +514,9 @@ function openProfile() {
 // Invite link: the app's address with your friend code. Whoever opens it and signs in sends you a friend request.
 async function invite() {
   const url = `${location.origin}${location.pathname}?invite=${encodeURIComponent(store.me().code)}`;
-  const text = 'Rank movies and shows with me on Movie Ranker:';
+  const text = 'Rank movies and shows with me on Film Ranker:';
   try {
-    if (navigator.share) { await navigator.share({ title: 'Movie Ranker', text, url }); return; }
+    if (navigator.share) { await navigator.share({ title: 'Film Ranker', text, url }); return; }
   } catch (e) { if (e.name === 'AbortError') return; }
   try { await navigator.clipboard.writeText(`${text} ${url}`); toast('Invite link copied'); }
   catch { sheet('Invite a friend', `<p>Send this link to a friend:</p><input type="text" readonly value="${esc(url)}" onfocus="this.select()">`); }
@@ -588,7 +588,7 @@ function authScreen(mode = 'signin', message = '') {
   $('#tabs').hidden = true;
   const signup = mode === 'signup';
   $('#me-btn').hidden = true;
-  $('#app').innerHTML = `<div class="pane-head">${pendingInvite() ? '<p class="banner">A friend invited you to Movie Ranker. Sign in or create an account and you’ll be connected.</p>' : ''}
+  $('#app').innerHTML = `<div class="pane-head">${pendingInvite() ? '<p class="banner">A friend invited you to Film Ranker. Sign in or create an account and you’ll be connected.</p>' : ''}
     <h1>${signup ? 'Create your account' : 'Sign in'}</h1>
     <p class="muted small">Your rankings are saved to your account, so they show on every device.
       Only you and the friends you accept can see them.</p>

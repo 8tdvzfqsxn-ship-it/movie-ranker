@@ -273,9 +273,9 @@ html.duo-wide .brand .name, html.duo-tall .brand .name { font-size: 1.7rem; }
 @keyframes splash-safety { to { opacity: 0; visibility: hidden; } }
 /* Same layout as the header's logo and name, up to 2.8 times bigger, so it can shrink straight into the header. */
 /* --u is the size of one header pixel on the splash: 2.8 at most, less when the screen is too narrow for that, so
-   logo and name always fit with 24px to spare on each side. The header brand is about 237px wide (256px on the Duo). */
-#splash { --u: min(2.8px, calc((100vw - 48px) / 237)); }
-html.duo-wide #splash, html.duo-tall #splash { --u: min(2.8px, calc((100vw - 48px) / 256)); }
+   logo and name always fit with 24px to spare on each side. The header brand is about 204px wide (220px on the Duo). */
+#splash { --u: min(2.8px, calc((100vw - 48px) / 204)); }
+html.duo-wide #splash, html.duo-tall #splash { --u: min(2.8px, calc((100vw - 48px) / 220)); }
 .splash-brand { display: flex; align-items: center; gap: calc(8 * var(--u)); transform-origin: 0 0; will-change: transform; }
 .splash-logo { width: calc(34 * var(--u)); height: calc(34 * var(--u)); display: block; flex-shrink: 0; overflow: visible; }
 .splash-name {

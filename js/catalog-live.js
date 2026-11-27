@@ -1,6 +1,6 @@
 // Full movie search (live mode), through the movie-search helper on Supabase.
 // Same functions as the practice catalog in catalog.js, but they wait for answers and remember them.
-import { storyOrder } from './story-order.js?v=16';
+import { storyOrder } from './story-order.js?v=17';
 
 export function createLiveCatalog(call) {
   const movies = new Map();   // every movie seen so far, by id

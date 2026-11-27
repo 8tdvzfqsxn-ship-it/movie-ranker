@@ -1,4 +1,4 @@
-# Movie Ranker
+# Film Ranker
 
 Josh's personal movie-ranking web app, a sibling of [Song Ranker](../song-ranker).
 
@@ -34,7 +34,7 @@ Start from Song Ranker's ranking (1 to 100, tags, compare with friends), plus mo
   disagree, what they loved that you haven't ranked, and your favorites they haven't ranked.
 - **TV shows (built 2026-11-25):** shows come up in the same search. Each show works like a series: its aired
   seasons are listed Season 1 first, each season gets its own 1 to 100 score, and the show's score is the average.
-  It keeps the name Movie Ranker.
+  Renamed Film Ranker on 2026-11-27 (it covers TV shows too, and is headed for the App Store). The web address and Supabase project keep the old movie-ranker name.
 - **Real posters:** these come from TMDB once the app goes live. Practice mode shows colored tiles.
 
 ## Logo (v7)
