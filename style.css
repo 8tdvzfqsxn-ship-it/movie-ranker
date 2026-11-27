@@ -267,6 +267,9 @@ html.duo-wide .brand .name, html.duo-tall .brand .name { font-size: 1.7rem; }
   animation: splash-safety 0s linear 6s forwards; /* if the app ever fails to start, never cover it for long */
 }
 #splash.leaving { background-color: transparent; pointer-events: none; }
+/* The header's own logo and name stay hidden while the opening screen is there, so the animated ones never slide
+   over a copy. The splash is removed the moment they land in its place (js/app.js endSplash), which reveals it. */
+#splash ~ .top .brand { visibility: hidden; }
 @keyframes splash-safety { to { opacity: 0; visibility: hidden; } }
 /* Same layout as the header's logo and name, up to 2.8 times bigger, so it can shrink straight into the header. */
 /* --u is the size of one header pixel on the splash: 2.8 at most, less when the screen is too narrow for that, so
