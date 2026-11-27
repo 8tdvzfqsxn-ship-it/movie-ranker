@@ -100,3 +100,16 @@ browser, and search uses a small built-in list of about 60 movies (`js/sample-mo
 
 - Story order typed in for more series than Star Wars, Marvel and Middle-earth.
 
+
+## App Store plan (started 2026-11-27)
+
+1. **Apple's requirements (done, v18):** Delete my account, Report and Block, `privacy.html` and `support.html`.
+   Privacy policy address for App Store Connect: https://8tdvzfqsxn-ship-it.github.io/movie-ranker/privacy.html
+   Support address: https://8tdvzfqsxn-ship-it.github.io/movie-ranker/support.html
+2. **Feel like a real app:** wrap with Capacitor in Xcode; native share sheet, tap feel on save, launch screen,
+   pull to refresh, works offline. (Apple rejects apps that are only a website in a box, rule 4.2.)
+3. **Josh's part with Apple:** Apple Developer Program ($99/year), reserve "Film Ranker" in App Store Connect,
+   age rating and privacy answers.
+4. **TestFlight, then submit for review.**
+
+TMDB's free terms cover non-commercial apps: keep it free with no ads, or get a TMDB commercial agreement first.
