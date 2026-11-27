@@ -1,8 +1,8 @@
 // Where accounts, rankings and friends are kept.
 // Two versions with the same functions: practice mode (this browser only) and Supabase (live).
 // Both keep a copy in memory, so screens can read right away; saving waits for the database.
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../config.js?v=13';
-import { PRACTICE_FRIENDS } from './practice-friends.js?v=13';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../config.js?v=14';
+import { PRACTICE_FRIENDS } from './practice-friends.js?v=14';
 
 export const isPractice = !SUPABASE_URL || !SUPABASE_ANON_KEY;
 export const STATUSES = { friend: 'Friend', best: 'Best friend' };
@@ -11,6 +11,7 @@ export const STATUSES = { friend: 'Friend', best: 'Best friend' };
 // kind is 'tv' for a TV season; episodes is how many episodes that season has.
 const MOVIE_FIELDS = ['id', 'title', 'date', 'year', 'genres', 'series', 'seriesName', 'franchise', 'poster', 'kind', 'episodes'];
 const pickMovie = (m) => Object.fromEntries(MOVIE_FIELDS.map((f) => [f, m[f] ?? null]));
+const cleanNote = (note) => String(note || '').trim().slice(0, 280) || null;
 const cleanTags = (tags) => [...new Set(tags.map((t) => String(t).trim().slice(0, 30)).filter(Boolean))].slice(0, 30);
 
 export async function createStore() {
@@ -35,8 +36,8 @@ function practiceStore() {
     me: () => ({ name: 'You', code: null }),
     all: () => Object.values(data.ratings),
     get: (id) => data.ratings[id],
-    async rate(movie, score, tags) {
-      data.ratings[movie.id] = { movie: pickMovie(movie), score, tags: cleanTags(tags), ratedAt: new Date().toISOString() };
+    async rate(movie, score, tags, note) {
+      data.ratings[movie.id] = { movie: pickMovie(movie), score, tags: cleanTags(tags), note: cleanNote(note), ratedAt: new Date().toISOString() };
       save();
     },
     async remove(id) { delete data.ratings[id]; save(); },
@@ -86,13 +87,13 @@ async function supabaseStore() {
   let friendMovies = new Map(); // movie details from friends' rankings, for Compare
   let keeper = false;            // can read feedback (supabase/setup.sql: app_keepers)
 
-  const toRating = (r) => ({ movie: r.movie, score: r.score, tags: r.tags, ratedAt: r.rated_at });
+  const toRating = (r) => ({ movie: r.movie, score: r.score, tags: r.tags, note: r.note || null, ratedAt: r.rated_at });
 
   // Loads everything the screens need: my profile and rankings, my friends, their rankings, my labels.
   async function load() {
     profile = ok(await sb.from('profiles').select('id, display_name, friend_code, custom_tags').eq('id', uid).single());
     try { keeper = ok(await sb.rpc('is_keeper')) === true; } catch { keeper = false; } // before the feedback setup is run
-    const mine = ok(await sb.from('ratings').select('movie_id, movie, score, tags, rated_at').eq('user_id', uid));
+    const mine = ok(await sb.from('ratings').select('movie_id, movie, score, tags, note, rated_at').eq('user_id', uid));
     ratings = Object.fromEntries(mine.map((r) => [r.movie_id, toRating(r)]));
 
     const links = ok(await sb.from('friendships').select('requester, addressee, status'));
@@ -105,11 +106,12 @@ async function supabaseStore() {
 
     const accepted = links.filter((f) => f.status === 'accepted').map(other);
     const theirs = accepted.length
-      ? ok(await sb.from('ratings').select('user_id, movie_id, movie, score').in('user_id', accepted)) : [];
+      ? ok(await sb.from('ratings').select('user_id, movie_id, movie, score, note').in('user_id', accepted)) : [];
     friendMovies = new Map(theirs.map((r) => [r.movie_id, r.movie]));
     friends = accepted.map((id) => ({
       id, name: name(id), status: labelOf(id),
       ratings: Object.fromEntries(theirs.filter((r) => r.user_id === id).map((r) => [r.movie_id, r.score])),
+      notes: Object.fromEntries(theirs.filter((r) => r.user_id === id && r.note).map((r) => [r.movie_id, r.note])),
     }));
     requests = {
       incoming: links.filter((f) => f.status === 'pending' && f.addressee === uid).map((f) => ({ id: f.requester, name: name(f.requester) })),
@@ -145,8 +147,8 @@ async function supabaseStore() {
 
     all: () => Object.values(ratings),
     get: (id) => ratings[id],
-    async rate(movie, score, tags) {
-      const row = { user_id: uid, movie_id: movie.id, movie: pickMovie(movie), score, tags: cleanTags(tags), rated_at: new Date().toISOString() };
+    async rate(movie, score, tags, note) {
+      const row = { user_id: uid, movie_id: movie.id, movie: pickMovie(movie), score, tags: cleanTags(tags), note: cleanNote(note), rated_at: new Date().toISOString() };
       ok(await sb.from('ratings').upsert(row));
       ratings[movie.id] = toRating(row);
     },

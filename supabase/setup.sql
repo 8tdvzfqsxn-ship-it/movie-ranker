@@ -22,6 +22,8 @@ create table if not exists public.ratings (
   rated_at timestamptz not null default now(),
   primary key (user_id, movie_id)
 );
+-- A personal note on a movie ("I watch this every Thanksgiving"). Friends can see it, like the score. (added 2026-11-27)
+alter table public.ratings add column if not exists note text check (char_length(note) <= 280);
 
 -- Friend links. "pending" until the other person accepts.
 create table if not exists public.friendships (

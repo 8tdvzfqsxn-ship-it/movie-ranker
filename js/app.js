@@ -1,7 +1,7 @@
 // Movie Ranker: screens and buttons.
-import { createStore, isPractice, STATUSES } from './store.js?v=13';
-import * as practiceCatalog from './catalog.js?v=13';
-import { createLiveCatalog } from './catalog-live.js?v=13';
+import { createStore, isPractice, STATUSES } from './store.js?v=14';
+import * as practiceCatalog from './catalog.js?v=14';
+import { createLiveCatalog } from './catalog-live.js?v=14';
 
 // The iPhone Duo's inside screen (lessons from Song Ranker). Safari doesn't tell pages where the fold is, so the
 // layout goes by screen size: about 669 × 951 points held tall, 951 × 669 held wide (fold down the middle).
@@ -63,13 +63,14 @@ function seenIcons(m) {
     seen.length > 3 ? `<span class="dot more">+${seen.length - 3}</span>` : ''}</span>`;
 }
 
-function movieRow(m, { num, label } = {}) {
+function movieRow(m, { num, label, extra = '' } = {}) {
   const r = store.get(m.id);
   const meta = [m.year, label, ...(r?.tags || [])].filter(Boolean).map(esc).join(' · ');
   return `<li class="movie">
     ${num ? `<span class="num">${num}</span>` : ''}
     ${poster(m)}
-    <div class="info"><div class="title">${esc(m.title)}</div><div class="muted small">${meta}</div></div>
+    <div class="info"><div class="title">${esc(m.title)}</div><div class="muted small">${meta}</div>${
+      r?.note ? `<div class="note">${esc(r.note)}</div>` : ''}${extra}</div>
     ${seenIcons(m)}
     ${r ? `<button class="score" data-rate="${esc(m.id)}" aria-label="Score ${r.score}. Change it">${r.score}</button>`
         : `<button class="primary" data-rate="${esc(m.id)}">Rank</button>`}
@@ -246,8 +247,11 @@ function compareScreen() {
     .sort((a, b) => b[1] - a[1]).map(([id, s]) => ({ m: movieById(id), them: s }));
   const myPicks = store.all().filter((r) => r.score >= 75 && f.ratings[r.movie.id] == null).sort((a, b) => b.score - a.score);
 
+  // Notes on a movie: yours, then your friend's (named).
+  const notes = (id) => [store.get(id)?.note && `<div class="note">${esc(store.get(id).note)}</div>`,
+    f.notes?.[id] && `<div class="note"><b>${esc(f.name)}:</b> ${esc(f.notes[id])}</div>`].filter(Boolean).join('');
   const pairRow = (x) => `<li class="movie">${poster(x.m)}
-    <div class="info"><div class="title">${esc(x.m.title)}</div><div class="muted small">${x.m.year}</div></div>
+    <div class="info"><div class="title">${esc(x.m.title)}</div><div class="muted small">${x.m.year}</div>${notes(x.m.id)}</div>
     <div class="pair"><span><small>You</small>${x.me}</span><span><small>${esc(f.name)}</small>${x.them}</span></div></li>`;
   const section = (title, rows, emptyText) => `<h3>${title}</h3>${rows.length
     ? `<div class="card"><ol class="movies">${rows.join('')}</ol></div>` : `<p class="muted small">${emptyText}</p>`}`;
@@ -260,7 +264,7 @@ function compareScreen() {
         : `How close your scores are, across the ${both.length} movie${both.length === 1 ? '' : 's'} you’ve both ranked.`}</div></div></div>
     <div class="pane-list">${section('You both love', bothLove.map(pairRow), 'No shared favorites yet (75 and up from both of you).')}
     ${section('Where you disagree', apart.map(pairRow), 'Nothing yet with 20 or more points between you.')}
-    ${section(`${esc(f.name)} loved, you haven’t ranked`, theirPicks.map((x) => movieRow(x.m, { label: `${f.name} gave it ${x.them}` })),
+    ${section(`${esc(f.name)} loved, you haven’t ranked`, theirPicks.map((x) => movieRow(x.m, { label: `${f.name} gave it ${x.them}`, extra: notes(x.m.id) })),
       `You’ve ranked everything ${esc(f.name)} loved.`)}
     ${section(`Your favorites ${esc(f.name)} hasn’t ranked`, myPicks.map((r) => pairRow({ m: movieById(r.movie.id), me: r.score, them: '–' })),
       'Nothing here yet.')}</div>`;
@@ -314,6 +318,8 @@ function openRate(id) {
     <input id="m-range" type="range" min="1" max="100" value="${score}" aria-label="Score from 1 to 100">
     <h3>Moments</h3><div class="chips" id="m-tags">${tagChips()}</div>
     <div class="addtag"><input type="text" id="m-newtag" placeholder="Add your own moment" maxlength="30"><button id="m-addtag">Add</button></div>
+    <h3>Note <span class="muted small">· optional · friends can see this</span></h3>
+    <textarea id="m-note" rows="2" maxlength="280" placeholder="I watch this every Thanksgiving">${esc(existing?.note || '')}</textarea>
     <div class="actions">${existing ? '<button class="danger" id="m-remove">Remove</button>' : ''}
       <div class="right"><button id="m-cancel">Cancel</button><button class="primary" id="m-save">Save</button></div></div>
   </div></div>`;
@@ -343,7 +349,7 @@ function openRate(id) {
     else if (t.id === 'm-save') {
       t.disabled = true;
       t.textContent = 'Saving…';
-      attempt(async () => { const full = await catalog.complete(m); await store.rate(full, score, [...tags]); return full; },
+      attempt(async () => { const full = await catalog.complete(m); await store.rate(full, score, [...tags], $('#m-note').value); return full; },
         (full) => { close(); render(); afterSave(full, score); },
         () => { t.disabled = false; t.textContent = 'Save'; });
     }
@@ -614,7 +620,7 @@ async function linkOldRankings() {
   for (const r of old) {
     try {
       const m = await catalog.match(r.movie.title, r.movie.year);
-      if (m && !store.get(m.id)) { await store.rate(m, r.score, r.tags); await store.remove(r.movie.id); linked++; }
+      if (m && !store.get(m.id)) { await store.rate(m, r.score, r.tags, r.note); await store.remove(r.movie.id); linked++; }
     } catch { return; } // search isn't working yet: try again next time
   }
   if (linked) { render(); toast(`Linked ${linked} earlier ranking${linked === 1 ? '' : 's'} to full movie search.`); }

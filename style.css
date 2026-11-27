@@ -367,3 +367,9 @@ textarea { font: inherit; width: 100%; padding: 11px 14px; border-radius: 12px; 
 .chips-label { width: 100%; font-size: .78rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
 .fb { padding: 12px 14px; }
 .fb p { margin: 6px 0 4px; white-space: pre-wrap; }
+
+/* ---------------------------------------------------------------- personal notes (v14)
+   A short note on a movie ("I watch this every Thanksgiving"), under its title in lists and in Compare. */
+.note { font-size: .82rem; font-style: italic; color: var(--muted); line-height: 1.35; margin-top: 2px; overflow-wrap: anywhere; }
+.note b { font-style: normal; font-weight: 600; }
+#m-note { margin-top: 0; }
