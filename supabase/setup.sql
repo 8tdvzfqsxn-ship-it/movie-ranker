@@ -79,6 +79,11 @@ begin
   select id into target from profiles where friend_code = upper(trim(code));
   if target is null then raise exception 'No one has that friend code.'; end if;
   if target = auth.uid() then raise exception 'That is your own code.'; end if;
+  -- Blocked either way: answer as if the code didn't exist, so a blocked person can't tell.
+  if to_regclass('public.blocks') is not null and exists (select 1 from blocks
+    where (blocker = auth.uid() and blocked = target) or (blocker = target and blocked = auth.uid())) then
+    raise exception 'No one has that friend code.';
+  end if;
   if exists (select 1 from friendships where requester = target and addressee = auth.uid()) then
     update friendships set status = 'accepted' where requester = target and addressee = auth.uid();
     return 'You are now friends.';
@@ -171,7 +176,7 @@ create table if not exists public.feedback (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null default auth.uid() references auth.users on delete cascade,
   display_name text check (char_length(display_name) <= 80),
-  kind text not null default 'idea' check (kind in ('idea', 'problem', 'other')),
+  kind text not null default 'idea' check (kind in ('idea', 'problem', 'other', 'report')),
   message text not null check (char_length(message) between 1 and 2000),
   app_version text check (char_length(app_version) <= 120),
   status text not null default 'new' check (status in ('new', 'planned', 'done', 'wont')),
@@ -194,3 +199,36 @@ create policy "keeper removes feedback" on public.feedback for delete to authent
 grant select, insert, update, delete on public.feedback to authenticated;
 revoke truncate, references, trigger on public.feedback, public.app_keepers from authenticated;
 revoke all on public.feedback from anon;
+
+-- ---------------------------------------------------------------- App Store requirements (added 2026-11-27)
+-- Delete my account: removes the signed-in person from sign-in, which also removes their profile, rankings,
+-- notes, friendships, labels, blocks and feedback (every table points at auth.users "on delete cascade").
+create or replace function public.delete_my_account() returns void
+language plpgsql security definer set search_path = public, auth as $$
+begin
+  if auth.uid() is null then raise exception 'Please sign in first.'; end if;
+  delete from auth.users where id = auth.uid();
+end $$;
+revoke all on function public.delete_my_account() from public, anon;
+grant execute on function public.delete_my_account() to authenticated;
+
+-- Report: a feedback row of kind 'report', with the person it's about.
+alter table public.feedback add column if not exists about uuid references auth.users on delete set null;
+alter table public.feedback drop constraint if exists feedback_kind_check;
+alter table public.feedback add constraint feedback_kind_check check (kind in ('idea', 'problem', 'other', 'report'));
+
+-- Block: the blocked person can't send you friend requests (send_friend_request above checks this).
+-- Private: only the person who blocked can see the block.
+create table if not exists public.blocks (
+  blocker uuid not null default auth.uid() references auth.users on delete cascade,
+  blocked uuid not null references auth.users on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (blocker, blocked),
+  check (blocker <> blocked)
+);
+alter table public.blocks enable row level security;
+drop policy if exists "own blocks only" on public.blocks;
+create policy "own blocks only" on public.blocks for all to authenticated
+  using (blocker = auth.uid()) with check (blocker = auth.uid());
+grant select, insert, delete on public.blocks to authenticated;
+revoke all on public.blocks from anon;

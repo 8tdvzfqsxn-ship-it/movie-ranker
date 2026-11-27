@@ -402,3 +402,16 @@ html .modal .poster.big { width: 84px; height: 122px; }
 .movies.compact .info { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .movies.compact .title { font-weight: 600; }
 .movies.compact .score { min-width: 40px; padding: 4px 0; font-size: .9rem; }
+
+/* ---------------------------------------------------------------- App Store requirements (v18)
+   Delete my account, Report and Block, and the privacy and support links. */
+.menu button.quiet { border: 0; padding-top: 6px; }
+.menu button.quiet > span:first-child { font-weight: 500; }
+button.danger-fill { background: var(--danger); color: #fff; }
+button.danger-fill:disabled { opacity: .4; }
+.foot-btns { display: flex; gap: 2px; }
+.check { display: flex; gap: 10px; align-items: flex-start; margin: 12px 0 4px; font-size: .9rem; }
+.check input { margin-top: 3px; accent-color: var(--accent); }
+.legal { color: var(--muted); margin: 14px 0 0; }
+.legal a { color: inherit; }
+.report-tag { color: var(--danger); }

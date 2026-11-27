@@ -1,8 +1,8 @@
 // Where accounts, rankings and friends are kept.
 // Two versions with the same functions: practice mode (this browser only) and Supabase (live).
 // Both keep a copy in memory, so screens can read right away; saving waits for the database.
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../config.js?v=17';
-import { PRACTICE_FRIENDS } from './practice-friends.js?v=17';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../config.js?v=18';
+import { PRACTICE_FRIENDS } from './practice-friends.js?v=18';
 
 export const isPractice = !SUPABASE_URL || !SUPABASE_ANON_KEY;
 export const STATUSES = { friend: 'Friend', best: 'Best friend' };
@@ -69,6 +69,9 @@ function practiceStore() {
       if (f && STATUSES[status]) { f.status = status; save(); }
     },
     async removeFriend(id) { data.friends = data.friends.filter((f) => f.code !== id); save(); },
+    async report() { throw new Error('Reporting works in the live app, once you’re signed in.'); },
+    async block(id) { await this.removeFriend(id); },
+    async deleteAccount() { throw new Error('Practice mode has no account. Your practice list lives only on this device.'); },
   };
 }
 
@@ -177,7 +180,7 @@ async function supabaseStore() {
       }));
     },
     async feedbackList() {
-      return ok(await sb.from('feedback').select('id, kind, message, display_name, app_version, status, created_at')
+      return ok(await sb.from('feedback').select('id, kind, message, display_name, app_version, status, created_at, about')
         .order('created_at', { ascending: false }).limit(300));
     },
     async updateFeedback(id, status) {
@@ -218,6 +221,25 @@ async function supabaseStore() {
       ok(await sb.from('friendships').delete().eq('requester', id).eq('addressee', uid));
       ok(await sb.from('friend_labels').delete().eq('owner', uid).eq('friend', id));
       await load();
+    },
+    // Report someone to the app's keeper (it arrives in the feedback inbox).
+    async report(id, name, reason) {
+      const text = String(reason || '').trim().slice(0, 1800);
+      ok(await sb.from('feedback').insert({
+        user_id: uid, kind: 'report', about: id, message: `Report about ${String(name || 'someone').slice(0, 60)}: ${text || '(no reason given)'}`,
+        display_name: (profile?.display_name || '').slice(0, 80) || null,
+      }));
+    },
+    // Block: removes the friendship and stops them sending you requests.
+    async block(id) {
+      ok(await sb.from('blocks').upsert({ blocker: uid, blocked: id }));
+      await this.removeFriend(id);
+    },
+    // Deletes the account and everything in it (supabase/setup.sql delete_my_account), then signs out here.
+    async deleteAccount() {
+      ok(await sb.rpc('delete_my_account'));
+      await sb.auth.signOut({ scope: 'local' });
+      uid = null;
     },
   };
 }

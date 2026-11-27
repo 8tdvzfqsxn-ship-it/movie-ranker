@@ -1,7 +1,7 @@
 // Film Ranker: screens and buttons.
-import { createStore, isPractice, STATUSES } from './store.js?v=17';
-import * as practiceCatalog from './catalog.js?v=17';
-import { createLiveCatalog } from './catalog-live.js?v=17';
+import { createStore, isPractice, STATUSES } from './store.js?v=18';
+import * as practiceCatalog from './catalog.js?v=18';
+import { createLiveCatalog } from './catalog-live.js?v=18';
 
 // The iPhone Duo's inside screen (lessons from Song Ranker). Safari doesn't tell pages where the fold is, so the
 // layout goes by screen size: about 669 × 951 points held tall, 951 × 669 held wide (fold down the middle).
@@ -231,7 +231,8 @@ function friendsScreen() {
       <div class="seg" role="group" aria-label="Status for ${esc(f.name)}">${seg}</div>
       <div class="friend-foot"><span class="muted small">${f.status === 'best'
         ? 'Shows an icon on movies they’ve seen.' : 'Stays out of the way until you compare.'}</span>
-        <button class="danger small" data-unfriend="${esc(f.id)}">Remove</button></div>
+        <span class="foot-btns"><button class="danger small" data-report="${esc(f.id)}">Report</button>
+        <button class="danger small" data-unfriend="${esc(f.id)}">Remove</button></span></div>
     </div>`;
   };
   return `<div class="pane-head"><h1>Friends</h1>
@@ -255,7 +256,8 @@ function requestsHtml() {
     <div class="info"><div class="title">${esc(p.name)}</div></div>${action}</li>`;
   return `<h3>Friend requests</h3><div class="card"><ol class="movies">${
     incoming.map((p) => row(p, `<button class="primary" data-accept="${esc(p.id)}">Accept</button>
-      <button class="danger small" data-unfriend="${esc(p.id)}" aria-label="Decline ${esc(p.name)}">Decline</button>`)).join('')}${
+      <button class="danger small" data-unfriend="${esc(p.id)}" aria-label="Decline ${esc(p.name)}">Decline</button>
+      <button class="danger small" data-report="${esc(p.id)}" aria-label="Report or block ${esc(p.name)}">Block</button>`)).join('')}${
     outgoing.map((p) => row(p, `<span class="muted small">Waiting for them</span>`)).join('')}</ol></div>`;
 }
 
@@ -440,6 +442,7 @@ document.addEventListener('click', (e) => {
       attempt(() => store.removeFriend(t.dataset.unfriend), () => { render(); toast(f ? `Removed ${name}` : 'Request declined'); });
     }
   }
+  else if (t.dataset.report) openReport(t.dataset.report);
   else if (t.dataset.accept) attempt(() => store.acceptFriend(t.dataset.accept), () => { render(); toast('You are now friends.'); });
   else if (t.id === 'f-add') addFriend();
   else if (t.id === 'me-btn') openProfile();
@@ -501,13 +504,54 @@ function openProfile() {
         <button data-act="feedback"><span>Send feedback</span><span class="muted small">Ideas, problems, anything</span></button>
         ${store.isKeeper() ? '<button data-act="inbox"><span>Feedback inbox</span><span class="muted small">Only you can see this</span></button>' : ''}
         <button data-act="signout" class="danger"><span>Sign out</span></button>
-      </div>`);
+        <button data-act="delete" class="danger quiet"><span>Delete my account</span><span class="muted small">Removes your rankings, notes and friends for good</span></button>
+      </div>
+      <p class="legal small"><a href="privacy.html">Privacy policy</a> · <a href="support.html">Help &amp; support</a></p>`);
   s.el.addEventListener('click', (e) => {
     const act = e.target.closest('[data-act]')?.dataset.act;
     if (act === 'invite') { s.close(); invite(); }
     else if (act === 'feedback') { s.close(); openFeedback(); }
     else if (act === 'inbox') { s.close(); openInbox(); }
     else if (act === 'signout') attempt(() => store.signOut(), () => location.reload());
+    else if (act === 'delete') { s.close(); openDeleteAccount(); }
+  });
+}
+
+// Apple requires that anyone who can make an account can delete it from inside the app.
+function openDeleteAccount() {
+  const s = sheet('Delete my account', `<p>This deletes your Film Ranker account and everything in it: your ${store.all().length} rankings,
+    moments, notes, friends and feedback. <b>It can’t be undone.</b></p>
+    <p class="muted small">Type <b>DELETE</b> to confirm.</p>
+    <input type="text" id="del-word" autocomplete="off" autocapitalize="characters" placeholder="DELETE">
+    <p class="err small" id="del-err"></p>
+    <div class="actions"><div class="right"><button data-close>Cancel</button><button class="primary danger-fill" id="del-go" disabled>Delete forever</button></div></div>`);
+  const word = s.el.querySelector('#del-word');
+  const go = s.el.querySelector('#del-go');
+  word.addEventListener('input', () => { go.disabled = word.value.trim().toUpperCase() !== 'DELETE'; });
+  go.addEventListener('click', () => {
+    go.disabled = true; go.textContent = 'Deleting…';
+    store.deleteAccount()
+      .then(() => { try { Object.keys(localStorage).filter((k) => k.startsWith('movie-ranker')).forEach((k) => localStorage.removeItem(k)); } catch { /* fine */ }
+        s.close(); authScreen('signin', 'Your account was deleted.'); })
+      .catch((e) => { s.el.querySelector('#del-err').textContent = e.message; go.disabled = false; go.textContent = 'Delete forever'; });
+  });
+}
+
+// Report a friend to the app's keeper, and block them (on by default) so they can't send requests again.
+function openReport(id) {
+  const name = store.friend(id)?.name || store.requests().incoming.find((p) => p.id === id)?.name || 'this person';
+  const s = sheet(`Report ${name}`, `<p class="muted small">Tell us what happened. Only the app’s keeper reads reports.</p>
+    <textarea id="rep-text" rows="4" maxlength="1800" placeholder="What’s wrong?"></textarea>
+    <label class="check"><input type="checkbox" id="rep-block" checked> Also block ${esc(name)}: removes them and stops their friend requests</label>
+    <p class="err small" id="rep-err"></p>
+    <div class="actions"><div class="right"><button data-close>Cancel</button><button class="primary" id="rep-send">Send report</button></div></div>`);
+  s.el.querySelector('#rep-send').addEventListener('click', (e) => {
+    e.target.disabled = true;
+    const block = s.el.querySelector('#rep-block').checked;
+    store.report(id, name, s.el.querySelector('#rep-text').value)
+      .then(() => (block ? store.block(id) : null))
+      .then(() => { s.close(); render(); toast(block ? `Reported and blocked ${name}` : 'Report sent'); })
+      .catch((err) => { s.el.querySelector('#rep-err').textContent = err.message; e.target.disabled = false; });
   });
 }
 
@@ -566,7 +610,7 @@ async function openInbox() {
   const draw = () => {
     s.el.querySelector('.modal').innerHTML = `<div class="sheet-head"><h2>Feedback inbox</h2><button class="x-btn" data-close aria-label="Close">×</button></div>
       ${items.length ? items.map((f) => `<div class="fb card">
-        <div class="muted small">${esc(f.display_name || 'Someone')} · ${esc(f.kind)} · ${new Date(f.created_at).toLocaleDateString()}</div>
+        <div class="muted small">${esc(f.display_name || 'Someone')} · ${f.kind === 'report' ? '<b class="report-tag">Report</b>' : esc(f.kind)} · ${new Date(f.created_at).toLocaleDateString()}</div>
         <p>${esc(f.message)}</p>
         <div class="seg">${Object.entries(STATUS).map(([v, l]) => `<button data-fb="${esc(f.id)}" data-status="${v}" class="${f.status === v ? 'on' : ''}">${l}</button>`).join('')}</div>
       </div>`).join('') : '<p class="empty">No feedback yet.</p>'}`;
@@ -601,7 +645,8 @@ function authScreen(mode = 'signin', message = '') {
       <p class="err small" id="a-err">${esc(message)}</p>
     </form>
     <p class="center small">${signup ? 'Already have an account?' : 'New here?'}
-      <button class="link" id="a-switch">${signup ? 'Sign in' : 'Create an account'}</button></p></div>`;
+      <button class="link" id="a-switch">${signup ? 'Sign in' : 'Create an account'}</button></p>
+    <p class="legal small center">${signup ? 'By creating an account you agree to the ' : ''}<a href="privacy.html">Privacy policy</a> · <a href="support.html">Help &amp; support</a></p></div>`;
   $('#a-switch').onclick = () => authScreen(signup ? 'signin' : 'signup');
   $('#auth').onsubmit = async (e) => {
     e.preventDefault();
