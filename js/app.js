@@ -1,7 +1,7 @@
 // Movie Ranker: screens and buttons.
-import { createStore, isPractice, STATUSES } from './store.js?v=14';
-import * as practiceCatalog from './catalog.js?v=14';
-import { createLiveCatalog } from './catalog-live.js?v=14';
+import { createStore, isPractice, STATUSES } from './store.js?v=15';
+import * as practiceCatalog from './catalog.js?v=15';
+import { createLiveCatalog } from './catalog-live.js?v=15';
 
 // The iPhone Duo's inside screen (lessons from Song Ranker). Safari doesn't tell pages where the fold is, so the
 // layout goes by screen size: about 669 × 951 points held tall, 951 × 669 held wide (fold down the middle).
@@ -26,7 +26,8 @@ fitScreen();
 const store = await createStore();
 // Practice mode searches the built-in list; live mode searches TMDB and OMDb through Supabase.
 const catalog = isPractice ? practiceCatalog : createLiveCatalog((body) => store.call(body));
-const state = { tab: 'rank', query: '', order: 'release', tag: '', open: new Set(), friend: null, trending: null };
+const state = { tab: 'rank', query: '', order: 'release', tag: '', open: new Set(), friend: null, trending: null, view: 'list' };
+try { state.view = localStorage.getItem('movie-ranker:view') || 'list'; } catch { /* private window */ }
 const VERSION = document.querySelector('.version')?.textContent || '';
 
 const MOMENTS = ['Date night', 'Comfort movie', 'Family night', 'With friends', 'Rainy day', 'Holiday', 'Rewatch often'];
@@ -167,11 +168,36 @@ function listScreen() {
   const tags = [...new Set(all.flatMap((r) => r.tags))];
   if (state.tag && !tags.includes(state.tag)) state.tag = '';
   const shown = state.tag ? all.filter((r) => r.tags.includes(state.tag)) : all;
-  return `<div class="pane-head"><h1>My list</h1><p class="muted small">${all.length} ranked, highest first.</p>
+  const view = VIEWS[state.view] ? state.view : 'list';
+  const switcher = `<div class="views" role="group" aria-label="View">${Object.entries(VIEWS).map(([key, v]) =>
+    `<button data-view="${key}" class="${view === key ? 'on' : ''}" aria-label="${v.name}" aria-pressed="${view === key}" title="${v.name}">${v.icon}</button>`).join('')}</div>`;
+  return `<div class="pane-head"><h1>My list</h1><div class="list-bar"><p class="muted small">${all.length} ranked, highest first.</p>${switcher}</div>
     ${tags.length ? `<div class="chips"><button class="chip ${state.tag ? '' : 'on'}" data-tag="">All</button>${
       tags.map((t) => `<button class="chip ${state.tag === t ? 'on' : ''}" data-tag="${esc(t)}">${esc(t)}</button>`).join('')}</div>` : ''}</div>
-    <div class="pane-list"><div class="card"><ol class="movies">${shown.map((r, i) => movieRow(movieById(r.movie.id), { num: i + 1, label: r.movie.seriesName })).join('')}</ol></div></div>`;
+    <div class="pane-list">${VIEWS[view].render(shown.map((r) => movieById(r.movie.id)), shown)}</div>`;
 }
+
+// My list can be shown three ways; the choice is remembered on this device.
+const svg = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
+const VIEWS = {
+  list: {
+    name: 'List', icon: svg('<rect x="3" y="4" width="5" height="7" rx="1"/><rect x="3" y="13" width="5" height="7" rx="1"/><path d="M11 6h10M11 9h6M11 15h10M11 18h6"/>'),
+    render: (movies, rs) => `<div class="card"><ol class="movies">${movies.map((m, i) => movieRow(m, { num: i + 1, label: rs[i].movie.seriesName })).join('')}</ol></div>`,
+  },
+  grid: {
+    name: 'Grid', icon: svg('<rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/>'),
+    render: (movies) => `<ol class="grid">${movies.map((m, i) => `<li><button class="tile" data-rate="${esc(m.id)}" aria-label="${esc(m.title)}, number ${i + 1}, score ${scoreOf(m)}. Change it">
+      ${poster(m, 'fill')}<span class="rank">${i + 1}</span><span class="gscore">${scoreOf(m)}</span>${seenIcons(m)}</button>
+      <div class="gtitle">${esc(m.title)}</div></li>`).join('')}</ol>`,
+  },
+  compact: {
+    name: 'Compact', icon: svg('<path d="M4 5h16M4 9.7h16M4 14.3h16M4 19h16"/>'),
+    render: (movies) => `<div class="card"><ol class="movies compact">${movies.map((m, i) => `<li class="movie">
+      <span class="num">${i + 1}</span><div class="info"><span class="title">${esc(m.title)}</span> <span class="muted small">${m.year || ''}</span></div>
+      ${seenIcons(m)}<button class="score" data-rate="${esc(m.id)}" aria-label="Score ${scoreOf(m)}. Change it">${scoreOf(m)}</button></li>`).join('')}</ol></div>`,
+  },
+};
+const VIEW_KEY = 'movie-ranker:view';
 
 // Practice mode lists every series and franchise in the built-in list. Live mode lists the ones
 // you've ranked a movie from, each with all of its movies.
@@ -403,6 +429,7 @@ document.addEventListener('click', (e) => {
   else if (t.dataset.rate) openRate(t.dataset.rate);
   else if (t.dataset.order) { state.order = t.dataset.order; render(); }
   else if (t.dataset.tag != null) { state.tag = t.dataset.tag; render(); }
+  else if (t.dataset.view) { state.view = t.dataset.view; try { localStorage.setItem(VIEW_KEY, state.view); } catch { /* fine */ } render(); }
   else if (t.dataset.try) { state.query = t.dataset.try; render(); $('#q').focus(); }
   else if (t.dataset.status) { attempt(() => store.setStatus(t.dataset.id, t.dataset.status), render); }
   else if (t.dataset.compare) { state.friend = t.dataset.compare; state.tab = 'compare'; render(); window.scrollTo(0, 0); }
