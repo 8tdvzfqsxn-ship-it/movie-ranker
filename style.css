@@ -386,7 +386,9 @@ textarea { font: inherit; width: 100%; padding: 11px 14px; border-radius: 12px; 
 .grid { list-style: none; margin: 10px 0; padding: 0; display: grid; gap: 14px 10px; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
 .grid li { min-width: 0; }
 .tile { position: relative; display: block; width: 100%; padding: 0; border-radius: 10px; overflow: hidden; aspect-ratio: 2 / 3; background: var(--chip); }
-.poster.fill { width: 100%; height: 100%; border-radius: 0; object-fit: cover; font-size: 1.3rem; }
+/* "html" makes these win over the Duo's smaller list posters (html.duo-tall/.duo-wide .poster). */
+html .tile .poster.fill { width: 100%; height: 100%; border-radius: 0; object-fit: cover; font-size: 1.3rem; }
+html .modal .poster.big { width: 84px; height: 122px; }
 .tile .rank, .tile .gscore { position: absolute; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; }
 .tile .rank { top: 6px; left: 6px; min-width: 22px; padding: 4px 5px; border-radius: 7px; font-size: .75rem; text-align: center;
   background: rgba(0, 0, 0, .6); color: #fff; }

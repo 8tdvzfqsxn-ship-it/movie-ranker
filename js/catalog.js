@@ -1,6 +1,6 @@
 // Finding movies and their groups (series and franchises).
 // Practice mode reads the built-in list in sample-movies.js.
-import { SERIES, FRANCHISE_STORY_ORDER, MOVIES } from './sample-movies.js?v=15';
+import { SERIES, FRANCHISE_STORY_ORDER, MOVIES } from './sample-movies.js?v=16';
 
 const movies = MOVIES.map(([id, title, date, genres, series, franchise]) => ({
   id, title, date, year: Number(date.slice(0, 4)),

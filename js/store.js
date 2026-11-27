@@ -1,8 +1,8 @@
 // Where accounts, rankings and friends are kept.
 // Two versions with the same functions: practice mode (this browser only) and Supabase (live).
 // Both keep a copy in memory, so screens can read right away; saving waits for the database.
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../config.js?v=15';
-import { PRACTICE_FRIENDS } from './practice-friends.js?v=15';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../config.js?v=16';
+import { PRACTICE_FRIENDS } from './practice-friends.js?v=16';
 
 export const isPractice = !SUPABASE_URL || !SUPABASE_ANON_KEY;
 export const STATUSES = { friend: 'Friend', best: 'Best friend' };
